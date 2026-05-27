@@ -1,0 +1,97 @@
+---
+pcx_content_type: reference
+title: Authorization
+head: []
+description: Control access to Workers and Developer Platform resources with roles.
+---
+
+import { Details } from "~/components";
+
+When you add members to your Cloudflare account or create API tokens, you can assign roles that control access to Workers and other Developer Platform resources. Roles determine what actions users can perform, from viewing metadata to creating and managing resources.
+
+For information about managing account members, refer to [Manage members](/fundamentals/manage-members/manage/). For information about creating API tokens, refer to [Create API tokens](/fundamentals/api/get-started/create-token/).
+
+## Overview
+
+For every product within the [Developer Platform](/products/?product-group=Developer+platform), you can assign one or more of the following role types to users or API tokens on your Cloudflare account:
+
+- **Metadata Read-Only**: Allows viewing resource lists, settings, and observability data (metrics, logs, traces) without access to product content.
+- **Bind**: Can [bind a Worker](https://developers.cloudflare.com/workers/runtime-apis/bindings/) to product resources. 
+- **Content Read-Only**: Allows reading product content (such as D1 database content or Worker code) without the ability to modify it.
+- **Editor**: Allows reading and writing product content, and updating settings. Cannot create, delete, or rename resources.
+- **Admin**: Full control over resources, including the ability to create, rename, delete, and grant access to other users.
+- **Create**: Allows creating new resources. The user who creates a resource automatically becomes the Admin for that resource. Does not grant access to existing resources.
+
+As a best practice, developers building with the Developer Platform should have **Developer Platform Metadata Read-Only** combined with a product-specific **Create** role. This approach allows developers to view resources and observability data across the platform while creating and managing their own resources.
+
+Users can have multiple roles, both account-wide and per-resource.
+
+:::note
+Metadata Read-Only, Content Read-Only, Editor, and Admin roles are ordered from least to most privileged. More privileged roles include all access granted by less privileged roles.
+
+Page below describes roles for Workers and D1. The same pattern would be followed for all products within Developer Platform.
+:::
+
+```mermaid
+flowchart TD
+    classDef default text-align:center;
+    A["Metadata Read-Only<br/>(least privileged)"] --> B["Content Read-Only"]
+    B --> C["Editor"]
+    C --> D["Admin<br/>(most privileged)"]
+```
+
+## Developer Platform roles
+
+Developer Platform roles grant access to all products in the Developer Platform, including Workers, D1, KV, R2, Durable Objects, and other related products.
+
+| Role                                                                                                   | Description                                                                                                                                                                                          |
+| ------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Developer Platform Metadata Read-Only                                                                    | Can see all resources. <br/> Can read metadata such as settings and observability (metrics, logs, traces). <br/> Cannot read product content or manage resources.                                                                 |
+| [Developer Platform Content Read-Only](/fundamentals/manage-members/roles/#account-scoped-roles) (existing role) | Can read metadata and product content (KV namespace values, Worker code). <br/> Cannot manage resources or update settings.                                                                          |
+| Developer Platform Editor                                                                                | Can read and write product content. <br/> Can update settings and create new versions and deployments. <br/> Cannot create, delete, or rename resources. <br/> Cannot manage resource access.        |
+| [Developer Platform Admin](/fundamentals/manage-members/roles/#account-scoped-roles) (existing role)     | Can read metadata and product content. <br/> Can update settings. <br/> Can create, rename, and delete resources. <br/> Can grant resource access to other users.                                    |
+| Developer Platform Create                                                                                | Can create new resources across Developer Platform products (Workers, D1, KV). <br/> User who creates a resource becomes Admin for that resource. <br/> Does not grant access to existing resources. |
+
+## Product roles
+
+Product roles can apply to all resources for that product or to individual resources, such as a specific Worker script or D1 database, depending on the scope you specify in the user membership or API token permission policy.
+
+### Workers roles
+
+| Role                       | Description                                                                                                                                                                                                                                                                                        |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Workers Metadata Read-Only | Can see Worker exists (list). <br/> Can see settings (limits, compatibility flags). <br/> Can see bindings configuration, routes, custom domains, cron triggers, and deployment history. <br/> Can see observability (metrics, logs, traces, tail). <br/> Cannot see script code or secret values. |
+| Workers Bind               | Can bind to a Worker via service bindings. <br/> Cannot deploy changes, read script code, or modify other settings.                                                                                                                                                                                        |
+| Workers Content Read-Only  | Can view Worker script source code. <br/> Cannot deploy changes or modify settings.                                                                                                                                                                                                                |
+| Workers Editor             | Can deploy Worker changes to production. <br/> Can create versions and deployments. <br/> Can update Worker settings and bindings. <br/> Can manage routes, custom domains, cron triggers, and secrets. <br/> Cannot create or delete Workers.                                                     |
+| Workers Admin              | Can create, rename, and delete Workers. <br/> Can manage subdomain (\*.workers.dev) settings and account-level Workers settings. <br/> Can grant resource access to other users.                                                                                                                   |
+| Workers Create             | Can create a new Worker and become Worker Admin for your Worker. <br/> Does not grant access to existing Workers.                                                                                                                                                                                  |
+
+### D1 product roles
+
+:::note
+When deploying a Worker with a D1 binding, user must have **D1 Bind** role or higher for the binding's database. Workers accessing resource bindings do not make granular authorization checks at runtime.
+:::
+
+| Role                  | Description                                                                                                                                                 |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| D1 Metadata Read-Only | Can list databases and read database metadata. <br/> Cannot read or write database content.                                                                 |
+| D1 Bind               | Can bind D1 database to Workers. <br/> Cannot read or write database content or manage database.                                                         |
+| D1 Content Read-Only  | Can bind D1 database to Workers. <br/> Can read database content with read-only queries. <br/> Can read all metadata. <br/> Cannot write to database or update settings.                          |
+| D1 Editor             | Can bind D1 database to Workers. <br/> Can read and write database content. <br/> Can read all metadata. <br/> Cannot manage databases or update settings.                                         |
+| D1 Admin              | Can bind D1 database to Workers. <br/> Can create, list, read, update, and delete database. <br/> Can grant access to other users.                |
+| D1 Create             | Can create new databases. <br/> User who creates a database becomes D1 Admin for that specific database. <br/> Does not grant access to existing databases. |
+
+## FAQ
+
+<Details header="What is treated as product metadata vs content?">
+
+In general, product metadata includes settings and observability (metrics, logs, traces) data. Product content includes customer-provided content, such as your Worker script code or D1 database data.
+
+</Details>
+
+## Related resources
+
+- [Manage account members](/fundamentals/manage-members/manage/) - Add and remove members from your account.
+- [Roles](/fundamentals/manage-members/roles/) - View all available roles for your account.
+- [Create API tokens](/fundamentals/api/get-started/create-token/) - Create tokens with specific permissions.
