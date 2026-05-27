@@ -1,0 +1,108 @@
+---
+title: Limitations and best practices
+description: Supported features, known limitations, and best practices for R2 SQL queries.
+pcx_content_type: concept
+tags:
+  - SQL
+sidebar:
+  order: 5
+products:
+  - r2-sql
+---
+
+:::note
+R2 SQL is in open beta. Limitations and best practices will change over time.
+:::
+
+This page summarizes supported features, limitations, and best practices.
+
+## Quick reference
+
+| Feature                                                 | Supported | Notes                                                                        |
+| :------------------------------------------------------ | :-------- | :--------------------------------------------------------------------------- |
+| SELECT, WHERE, GROUP BY, HAVING, ORDER BY, LIMIT        | Yes       |                                                                              |
+| Column aliases (`AS`)                                   | Yes       |                                                                              |
+| Expressions (CASE, CAST, LIKE, BETWEEN, IN, arithmetic) | Yes       | Full expression support                                                      |
+| EXPLAIN                                                 | Yes       | Returns execution plan as text or JSON                                       |
+| 173 scalar functions                                    | Yes       | Math, string, datetime, regex, crypto, array, map, struct, JSON              |
+| 33 aggregate functions                                  | Yes       | Basic, approximate, statistical, bitwise, boolean, positional                |
+| Approximate aggregates                                  | Yes       | `approx_distinct`, `approx_median`, `approx_percentile_cont`, `approx_top_k` |
+| Struct / Array / Map column types                       | Yes       | Bracket notation, `get_field()`, array functions, map functions           |
+| CTEs (`WITH ... AS`)                                    | Yes       | Single-table only. No JOINs or cross-table references within CTEs.           |
+| JOINs                                                   | No        | Single-table only                                                            |
+| Subqueries                                              | No        |                                                                              |
+| Window functions (`OVER`)                               | No        |                                                                              |
+| `SELECT DISTINCT`                                       | No        | Use `approx_distinct`                                                        |
+| `OFFSET`                                                | No        |                                                                              |
+| `UNION` / `INTERSECT` / `EXCEPT`                        | No        |                                                                              |
+| `INSERT` / `UPDATE` / `DELETE`                          | No        | Read-only                                                                    |
+| `CREATE` / `DROP` / `ALTER`                             | No        | Read-only                                                                    |
+
+For the full SQL syntax, refer to the [SQL reference](/r2-sql/sql-reference/).
+
+---
+
+## Unsupported SQL features
+
+| Feature                                                                       | Error                                                    |
+| :---------------------------------------------------------------------------- | :------------------------------------------------------- |
+| JOINs (any type)                                                              | `unsupported feature: JOIN operations are not supported` |
+| Multi-table CTEs (JOINs or cross-table references within `WITH`)              | Single-table CTEs are supported                          |
+| Subqueries (FROM, WHERE, scalar)                                              | `unsupported feature: subqueries`                        |
+| `SELECT DISTINCT`                                                             | `unsupported feature: SELECT DISTINCT is not supported`  |
+| `OFFSET`                                                                      | `unsupported feature: OFFSET clause is not supported`    |
+| `UNION` / `INTERSECT` / `EXCEPT`                                              | Set operations not supported                             |
+| Window functions (`OVER`)                                                     | `unsupported feature: window functions (OVER clause)`    |
+| `INSERT` / `UPDATE` / `DELETE`                                                | `only read-only queries are allowed`                     |
+| `CREATE` / `DROP` / `ALTER`                                                   | `only read-only queries are allowed`                     |
+| `UNNEST` / `PIVOT` / `UNPIVOT`                                                | Not supported                                            |
+| Wildcard modifiers (`ILIKE`, `EXCLUDE`, `EXCEPT`, `REPLACE`, `RENAME` on `*`) | Not supported                                            |
+| `LATERAL VIEW` / `QUALIFY`                                                    | Not supported                                            |
+
+---
+
+## Unsupported expression patterns
+
+| Pattern                                                 | Alternative                                                                                       |
+| :------------------------------------------------------ | :------------------------------------------------------------------------------------------------ |
+| `func(DISTINCT ...)` on any aggregate                   | Use `approx_distinct` for counting                                                                |
+| `PERCENTILE_CONT` / `PERCENTILE_DISC`                   | Use [`approx_percentile_cont`](/r2-sql/sql-reference/aggregate-functions/#approx_percentile_cont) |
+| `MEDIAN`                                                | Use [`approx_median`](/r2-sql/sql-reference/aggregate-functions/#approx_median)                   |
+| `ARRAY_AGG`                                             | No alternative (unsupported for memory safety)                                                    |
+| `STRING_AGG`                                            | No alternative (unsupported for memory safety)                                                    |
+| Scalar subqueries (`SELECT ... WHERE x = (SELECT ...)`) | Not supported                                                                                     |
+| `EXISTS (SELECT ...)`                                   | Not supported                                                                                     |
+| `IN (SELECT ...)`                                       | Use `IN (value1, value2, ...)` with a literal list                                                |
+
+---
+
+## Runtime constraints
+
+| Constraint                           | Details                                                                                               |
+| :----------------------------------- | :---------------------------------------------------------------------------------------------------- |
+| Single table per query               | Queries must reference exactly one table. No JOINs, no subqueries. CTEs may reference a single table. |
+| Partitioned and unpartitioned tables  | Both partitioned and unpartitioned Iceberg tables are supported.                                       |
+| Parquet format only                  | No CSV, JSON, or other formats.                                                                       |
+| Read-only                            | R2 SQL is a query engine, not a database. No writes.                                                  |
+| `now()` / `current_time()` precision | Quantized to 10ms boundaries and forced to UTC.                                                       |
+
+---
+
+## Common error codes
+
+| Code  | Meaning                                                            |
+| :---- | :----------------------------------------------------------------- |
+| 40003 | Invalid SQL syntax                                                 |
+| 40004 | Invalid query (unsupported feature, unknown column, type mismatch) |
+| 80001 | Edge service connection failure (retry)                            |
+
+---
+
+## Best practices
+
+1. Include time-range filters in `WHERE` to limit data scanned.
+2. Use specific column names instead of `SELECT *` for better performance.
+3. Use `LIMIT` to control result set size.
+4. Use approximate aggregation functions (`approx_distinct`, `approx_median`, `approx_percentile_cont`) instead of exact alternatives on large datasets.
+5. Enable compaction in R2 Data Catalog to reduce the number of files scanned per query.
+6. Use `EXPLAIN` to inspect the execution plan and verify predicate pushdown.
