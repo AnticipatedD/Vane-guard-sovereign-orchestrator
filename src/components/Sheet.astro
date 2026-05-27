@@ -1,0 +1,161 @@
+---
+interface Props {
+	/**
+	 * Unique identifier for the sheet (used for aria-labelledby)
+	 */
+	id: string;
+	/**
+	 * Side of the screen where the sheet appears
+	 * @default "right"
+	 */
+	side?: "top" | "right" | "bottom" | "left";
+	/**
+	 * Whether to show the close button
+	 * @default true
+	 */
+	showCloseButton?: boolean;
+	/**
+	 * Custom class for the sheet content
+	 */
+	class?: string;
+}
+
+const {
+	id,
+	side = "right",
+	showCloseButton = true,
+	class: className = "",
+} = Astro.props;
+
+const sideClasses = {
+	top: "inset-x-0 top-0 border-b data-[state=closed]:slide-out-to-top data-[state=open]:slide-in-from-top",
+	bottom:
+		"inset-x-0 bottom-0 border-t data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom",
+	left: "inset-y-0 left-0 h-full w-3/4 border-r data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left sm:max-w-sm",
+	right:
+		"inset-y-0 right-0 h-full w-3/4 border-r data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right sm:max-w-sm",
+};
+---
+
+<div class="sheet-container" data-sheet-id={id}>
+	<!-- Trigger slot -->
+	<slot name="trigger" />
+
+	<!-- Overlay -->
+	<div
+		class="sheet-overlay data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0 fixed inset-0 z-50 bg-black/80"
+		data-state="closed"
+		aria-hidden="true"
+	>
+	</div>
+
+	<!-- Sheet Content -->
+	<div
+		class:list={[
+			"sheet-content data-[state=open]:animate-in data-[state=closed]:animate-out fixed z-50 gap-4 bg-[var(--sl-color-bg)] p-6 shadow-lg transition ease-in-out data-[state=closed]:duration-300 data-[state=open]:duration-500",
+			sideClasses[side],
+			className,
+		]}
+		data-state="closed"
+		role="dialog"
+		aria-modal="true"
+		aria-labelledby={`${id}-title`}
+		aria-describedby={`${id}-description`}
+	>
+		{
+			showCloseButton && (
+				<button
+					type="button"
+					class="sheet-close absolute top-4 right-4 rounded-sm opacity-70 ring-offset-[var(--sl-color-bg)] transition-opacity hover:opacity-100 focus:ring-2 focus:ring-[var(--sl-color-text-accent)] focus:ring-offset-2 focus:outline-none disabled:pointer-events-none"
+					aria-label="Close"
+				>
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						width="24"
+						height="24"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						class="h-4 w-4"
+					>
+						<path d="M18 6 6 18" />
+						<path d="m6 6 12 12" />
+					</svg>
+				</button>
+			)
+		}
+
+		<!-- Content slots -->
+		<slot />
+	</div>
+</div>
+
+<script>
+	function initSheet(container: HTMLElement) {
+		const sheetId = container.dataset.sheetId;
+		if (!sheetId) return;
+
+		const trigger = container.querySelector('[slot="trigger"]');
+		const overlay = container.querySelector(".sheet-overlay") as HTMLElement;
+		const content = container.querySelector(".sheet-content") as HTMLElement;
+		const closeButton = container.querySelector(".sheet-close");
+
+		if (!trigger || !overlay || !content) return;
+
+		let isOpen = false;
+
+		function openSheet() {
+			isOpen = true;
+			overlay.dataset.state = "open";
+			content.dataset.state = "open";
+			document.body.style.overflow = "hidden";
+
+			// Focus management
+			const firstFocusable = content.querySelector(
+				'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+			) as HTMLElement;
+			firstFocusable?.focus();
+		}
+
+		function closeSheet() {
+			isOpen = false;
+			overlay.dataset.state = "closed";
+			content.dataset.state = "closed";
+			document.body.style.overflow = "";
+		}
+
+		// Trigger click
+		trigger.addEventListener("click", (e) => {
+			e.preventDefault();
+			openSheet();
+		});
+
+		// Close button click
+		closeButton?.addEventListener("click", closeSheet);
+
+		// Overlay click
+		overlay.addEventListener("click", closeSheet);
+
+		// Escape key
+		document.addEventListener("keydown", (e) => {
+			if (e.key === "Escape" && isOpen) {
+				closeSheet();
+			}
+		});
+
+		// Prevent content clicks from closing
+		content.addEventListener("click", (e) => {
+			e.stopPropagation();
+		});
+	}
+
+	// Initialize all sheets on the page
+	document.addEventListener("astro:page-load", () => {
+		document.querySelectorAll(".sheet-container").forEach((container) => {
+			initSheet(container as HTMLElement);
+		});
+	});
+</script>
