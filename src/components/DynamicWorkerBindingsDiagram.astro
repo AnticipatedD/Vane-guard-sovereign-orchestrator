@@ -1,0 +1,264 @@
+---
+// Static diagram — no props, no JS, no animation.
+---
+
+<dynamic-worker-bindings-diagram>
+	<!--
+		Layout: position:relative wrapper. The left column (.dw-main) holds
+		all the boxes. The right panel (.dw-right) is position:absolute so the
+		SVG arrow can be sized in real pixels without distortion.
+		The wrapper has padding-right to leave room for the right panel.
+	-->
+	<div class="dw-wrap">
+		<div class="dw-main">
+
+			<!-- Loader Worker -->
+			<div class="dw-loader-box">
+				<span class="dw-title">Loader Worker</span>
+
+				<!-- TrackedKV class box -->
+				<div class="dw-class-box">
+					<span class="dw-class-hdr">Export class TrackedKV extends WorkerEntrypoint</span>
+					<div class="dw-row">
+						<span class="dw-num">1</span>
+						<span class="dw-code">async put (key, value) {"{"}</span>
+					</div>
+					<div class="dw-row dw-in">
+						<span class="dw-cmt">//write to KV</span>
+					</div>
+					<div class="dw-row dw-in">
+						<span class="dw-num">2</span>
+						<span class="dw-code">await this.env.MY_KV.put(key, value)</span>
+					</div>
+					<div class="dw-row dw-in">
+						<span class="dw-cmt">//log the write</span>
+					</div>
+					<div class="dw-row dw-in">
+						<span class="dw-num">3</span>
+						<span class="dw-code">this.env.ANALYTICS.writeDataPoint(...){"}"}</span>
+					</div>
+				</div>
+
+				<!-- Step 4 -->
+				<div class="dw-row">
+					<span class="dw-cmt">//pass TrackedKV as env.STORAGE</span>
+				</div>
+				<div class="dw-row">
+					<span class="dw-num">4</span>
+					<span class="dw-code">load({"{"}env: (STORAGE: ctx.exports.TrackedKV()){"}"})</span>
+				</div>
+			</div>
+
+			<!-- Mid label -->
+			<div class="dw-mid">
+				<span class="dw-orange">passes STORAGE as a custom binding</span>
+			</div>
+
+			<!-- Dynamic Worker -->
+			<div class="dw-dynamic-box">
+				<span class="dw-title">Dynamic Worker</span>
+				<div class="dw-row dw-in">
+					<span class="dw-cmt">//write to KV</span>
+				</div>
+				<div class="dw-row">
+					<span class="dw-num">5</span>
+					<span class="dw-code">await env.STORAGE.put(...)</span>
+				</div>
+			</div>
+		</div>
+
+		<!--
+			Right panel: absolutely positioned beside the main column.
+			Contains the bracket arrow + label.
+
+			Arrow shape (pixels, viewBox 0 0 20 HEIGHT where HEIGHT is set by CSS):
+			  - short horizontal at top  → connects to step-2 level
+			  - vertical rail down
+			  - short horizontal at bottom → arrowhead pointing left to step-5 level
+
+			We use a real fixed pixel height so stroke-width stays crisp.
+		-->
+		<div class="dw-right" aria-hidden="true">
+			<svg class="dw-svg" viewBox="0 0 20 340" fill="none" xmlns="http://www.w3.org/2000/svg">
+				<!-- top arm: horizontal from left to right rail -->
+				<line x1="0"  y1="74"  x2="16" y2="74"  stroke="currentColor" stroke-width="1.5"/>
+				<!-- vertical rail -->
+				<line x1="16" y1="74"  x2="16" y2="300" stroke="currentColor" stroke-width="1.5"/>
+				<!-- bottom arm: horizontal from right rail to left -->
+				<line x1="0"  y1="300" x2="16" y2="300" stroke="currentColor" stroke-width="1.5"/>
+				<!-- arrowhead pointing left -->
+				<polyline points="6,294 0,300 6,306" stroke="currentColor" stroke-width="1.5"
+					stroke-linejoin="round" stroke-linecap="round" fill="none"/>
+			</svg>
+			<span class="dw-lbl">calls TrackedKV.put() in the Loader Worker</span>
+		</div>
+	</div>
+</dynamic-worker-bindings-diagram>
+
+<style>
+	dynamic-worker-bindings-diagram {
+		display: block;
+		width: 100%;
+		margin: 1.5rem 0;
+	}
+
+	/* ── Outer wrapper ───────────────────────────────────────── */
+	.dw-wrap {
+		position: relative;
+		max-width: 34rem;
+		/* right padding leaves room for the arrow panel */
+		padding-right: 7rem;
+		box-sizing: border-box;
+	}
+
+	/* ── Main column ─────────────────────────────────────────── */
+	.dw-main {
+		display: flex;
+		flex-direction: column;
+		gap: 0;
+	}
+
+	/* ── Loader Worker box ───────────────────────────────────── */
+	.dw-loader-box {
+		border: 1.5px solid rgb(249 115 22);
+		border-radius: 0.5rem;
+		padding: 0.5rem 0.625rem;
+		display: flex;
+		flex-direction: column;
+		gap: 0.2rem;
+	}
+
+	/* ── Dynamic Worker box ──────────────────────────────────── */
+	.dw-dynamic-box {
+		border: 1.5px solid rgb(249 115 22);
+		border-radius: 0.5rem;
+		padding: 0.4rem 0.625rem;
+		display: flex;
+		flex-direction: column;
+		gap: 0.15rem;
+	}
+
+	/* ── Titles ──────────────────────────────────────────────── */
+	.dw-title {
+		display: block;
+		font-family: system-ui, -apple-system, sans-serif;
+		font-size: 0.75rem;
+		font-weight: 700;
+		color: rgb(23 23 23);
+		margin-bottom: 0.2rem;
+	}
+	:root[data-theme="dark"] .dw-title { color: rgb(245 245 245); }
+
+	/* ── Inner class box ─────────────────────────────────────── */
+	.dw-class-box {
+		border: 1px solid rgb(99 155 240);
+		border-radius: 0.375rem;
+		padding: 0.4rem 0.5rem;
+		display: flex;
+		flex-direction: column;
+		gap: 0.1rem;
+		margin-bottom: 0.15rem;
+	}
+	:root[data-theme="dark"] .dw-class-box { border-color: rgb(59 130 246); }
+
+	.dw-class-hdr {
+		display: block;
+		font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+		font-size: 0.5625rem;
+		font-weight: 600;
+		color: rgb(37 99 235);
+		margin-bottom: 0.15rem;
+	}
+	:root[data-theme="dark"] .dw-class-hdr { color: rgb(96 165 250); }
+
+	/* ── Rows ────────────────────────────────────────────────── */
+	.dw-row {
+		display: flex;
+		align-items: center;
+		gap: 0.3rem;
+		min-height: 1.1rem;
+	}
+	.dw-in { padding-left: 1.4rem; }
+
+	/* ── Badge ───────────────────────────────────────────────── */
+	.dw-num {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 1rem;
+		height: 1rem;
+		min-width: 1rem;
+		border-radius: 50%;
+		border: 1px solid rgb(99 155 240);
+		font-family: system-ui, -apple-system, sans-serif;
+		font-size: 0.5rem;
+		font-weight: 700;
+		color: rgb(37 99 235);
+		flex-shrink: 0;
+	}
+	:root[data-theme="dark"] .dw-num { border-color: rgb(59 130 246); color: rgb(96 165 250); }
+
+	/* ── Code ────────────────────────────────────────────────── */
+	.dw-code {
+		font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+		font-size: 0.5625rem;
+		line-height: 1.4;
+		color: rgb(37 99 235);
+	}
+	:root[data-theme="dark"] .dw-code { color: rgb(96 165 250); }
+
+	/* ── Comment ─────────────────────────────────────────────── */
+	.dw-cmt {
+		font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+		font-size: 0.5rem;
+		line-height: 1.4;
+		color: rgb(115 115 115);
+	}
+	:root[data-theme="dark"] .dw-cmt { color: rgb(163 163 163); }
+
+	/* ── Orange label text ───────────────────────────────────── */
+	.dw-orange {
+		font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+		font-size: 0.5625rem;
+		font-weight: 500;
+		color: rgb(249 115 22);
+	}
+
+	/* ── Mid label ───────────────────────────────────────────── */
+	.dw-mid { padding: 0.3rem 0; }
+
+	/* ── Right panel (absolutely positioned) ─────────────────── */
+	.dw-right {
+		position: absolute;
+		top: 0;
+		right: 0;
+		bottom: 0;
+		width: 7rem;
+		display: flex;
+		flex-direction: row;
+		align-items: flex-start;
+	}
+
+	/* Fixed-pixel SVG — viewBox 0 0 20 340, rendered at 20px wide, full height */
+	.dw-svg {
+		width: 20px;
+		min-width: 20px;
+		height: 100%;
+		display: block;
+		color: rgb(23 23 23);
+		flex-shrink: 0;
+	}
+	:root[data-theme="dark"] .dw-svg { color: rgb(245 245 245); }
+
+	/* Label beside the arrow, vertically centered */
+	.dw-lbl {
+		font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+		font-size: 0.5625rem;
+		font-weight: 500;
+		color: rgb(249 115 22);
+		line-height: 1.4;
+		padding-left: 0.375rem;
+		align-self: center;
+		max-width: 5.5rem;
+	}
+</style>
