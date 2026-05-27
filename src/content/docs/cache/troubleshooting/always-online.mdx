@@ -1,0 +1,54 @@
+---
+title: Always Online
+pcx_content_type: troubleshooting
+description: Troubleshoot Always Online cached page issues.
+products:
+  - cache
+head:
+  - tag: title
+    content: Always Online - Troubleshooting
+---
+
+[Always Online](/cache/how-to/always-online/) serves archived versions of your website when your origin server is unreachable. It relies on the [Internet Archive](https://archive.org/) to crawl and store your pages. The following best practices help avoid common problems with this integration.
+
+## Best practices
+
+- **Allow requests from the Internet Archive IP addresses.** The Internet Archive crawler sends requests directly to your origin server. Make sure you are not blocking the Internet Archive IP ranges: `207.241.224.0/20` and `208.70.24.0/21`.
+- **The Internet Archive does not consider your origin server's `Cache-Control` header.** The Internet Archive archives pages regardless of `Cache-Control` directives because it archives content rather than caching it.
+- **Consider potential conflicts with Cloudflare features that transform URIs.** Always Online with Internet Archive integration may cause issues with [Cache Rules](/cache/how-to/cache-rules/) and other Cloudflare features that transform URIs. Some redirects that take place at the edge may prevent the Internet Archive crawler from archiving the target URL. Review [how Cloudflare caches resources by default](/cache/concepts/default-cache-behavior/) and any Cache Rules you have configured. If you experience problems, disable Always Online.
+- **Do not block Known Bots or Verified Bots via a WAF custom rule.** If you block either of these bot categories, the Internet Archive crawler cannot reach your site.
+
+## Incompatible configurations
+
+Do not use Always Online with:
+
+- API traffic.
+- An [IP Access rule](/waf/tools/ip-access-rules/) or a [WAF custom rule](/waf/custom-rules/) that blocks the United States.
+- Bypass Cache cache rules. Always Online ignores Bypass Cache cache rules and serves Always Online cached assets instead.
+
+## Limitations
+
+1. Always Online is not immediately active for sites recently added due to:
+   - DNS record propagation, which can take 24-72 hours.
+   - The Internet Archive has not yet crawled the website.
+2. Cloudflare cannot show private content behind logins or handle form submissions (`POST` requests) when your origin server is offline.
+
+Always Online only activates when your origin is completely unreachable (Cloudflare [520-527](/support/troubleshooting/http-status-codes/cloudflare-5xx-errors/error-520/) errors). It does not activate for HTTP response codes that the origin itself returns, such as [404](/support/troubleshooting/http-status-codes/4xx-client-error/error-404/), [500](/support/troubleshooting/http-status-codes/cloudflare-5xx-errors/error-500/), or [503](/support/troubleshooting/http-status-codes/cloudflare-5xx-errors/error-503/).
+
+## Frequently asked questions
+
+### How can I check if a page has been crawled?
+
+Search for the page URL on the [Internet Archive](https://web.archive.org/) or query the [Internet Archive Availability API](https://archive.org/help/wayback_api.php).
+
+### Why are some pages not crawled?
+
+Cloudflare only requests the Internet Archive to crawl the most popular pages on your site, based on `GET` requests that returned a `200` status code in the previous five hours. Some pages may not be archived. To archive a specific page, submit it through the [Internet Archive save page](https://web.archive.org/save).
+
+### What IP addresses should I allowlist?
+
+Add the Internet Archive IP ranges to your allowlist: `207.241.224.0/20` and `208.70.24.0/21`. These IP addresses belong to the Internet Archive, not Cloudflare.
+
+### What user agent should the origin expect?
+
+The Internet Archive currently uses: `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/605.1.15 (KHTML, like Gecko) Chrome/89.0.4389.82 Safari/605.1.15`.
