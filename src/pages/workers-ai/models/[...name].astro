@@ -1,0 +1,32 @@
+---
+import type { GetStaticPaths } from "astro";
+import ModelDetailPage from "~/components/models/ModelDetailPage.astro";
+import { getLegacyModels, fetchAllModelDetails } from "~/util/model-resolver";
+
+export const getStaticPaths = (async () => {
+	// One fetch for all detail data (fails loudly if middlecache is unavailable)
+	const [models, detailMap] = await Promise.all([
+		getLegacyModels(),
+		fetchAllModelDetails(),
+	]);
+
+	return models.flatMap((card) => {
+		// Detail map is keyed by slug with @ stripped
+		const detailSlug = card.modelId.replace(/^@/, "");
+		const detail = detailMap.get(detailSlug);
+		if (!detail) {
+			console.warn(
+				`workers-ai/models: no detail found for ${card.modelId} (slug: ${detailSlug})`,
+			);
+			return [];
+		}
+		// Workers AI detail pages use short slug (last segment) as URL param
+		const urlSlug = card.modelId.split("/").at(-1)!;
+		return [{ params: { name: urlSlug }, props: { model: detail } }];
+	});
+}) satisfies GetStaticPaths;
+
+const { model } = Astro.props;
+---
+
+<ModelDetailPage model={model} />
