@@ -1,0 +1,62 @@
+---
+pcx_content_type: overview
+title: Previews
+sidebar:
+  order: 6
+description: Deploy isolated copies of your Worker to test changes before deploying to production.
+---
+
+import { Steps, Tabs, TabItem, PackageManagers } from "~/components";
+
+**Previews** let you test changes to your Worker without affecting production data or traffic. A Preview is an isolated copy of your Worker with its own [bindings](/workers/runtime-apis/bindings/), [environment variables](/workers/configuration/environment-variables/), and [secrets](/workers/configuration/secrets/).
+
+You create or update a Preview by:
+
+- Running `wrangler preview` from the Wrangler CLI.
+- Pushing to a feature branch in a connected Git repository.
+- Calling the [Previews API](/workers/previews/api/) or using the Terraform resource.
+
+Each Preview has two kinds of **URLs**:
+
+- A **Preview URL** that points at the latest deployment. Think of it as your branch URL — it always serves whatever you pushed most recently.
+- A **Deployment URL** for each individual deployment. Think of it as your commit URL — it is immutable and never changes.
+
+When you connect your Git repository, Cloudflare posts these URLs on your pull requests as a comment. By default, Previews are served from your `workers.dev` subdomain. You can also route them through a [custom domain](/workers/previews/guides/custom-domains/).
+
+## Getting started
+
+<Steps>
+<ol>
+  <li>
+    <strong>Configure your Preview settings.</strong> These settings act as defaults for every new Preview on your Worker unless overridden for a specific deployment.
+    <Tabs>
+      <TabItem label="Wrangler configuration">
+        Add your Preview settings to a `previews` block in your Wrangler configuration file.
+        ```jsonc
+        {
+          "previews": {
+            "d1_databases": [
+              { "binding": "MY_DB", "database_id": "preview-db-id" }
+            ]
+          }
+        }
+        ```
+        Learn more in [Configuring Previews](/workers/previews/configuring-previews/).
+      </TabItem>
+      <TabItem label="Dashboard">
+        Go to your Worker's **Settings** > **Bindings** tab to set up your default Preview settings. You can import Production values to get started quickly.
+      </TabItem>
+    </Tabs>
+  </li>
+  <li>
+    Check out a new branch and make your changes.
+    ```sh
+    git checkout -b my-feature
+    ```
+  </li>
+  <li>
+    Run `wrangler preview`.
+    <PackageManagers type="exec" pkg="wrangler" args="preview" />
+  </li>
+</ol>
+</Steps>
