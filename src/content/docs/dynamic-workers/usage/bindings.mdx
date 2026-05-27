@@ -1,0 +1,132 @@
+---
+title: Bindings
+description: Give Dynamic Workers access to external APIs.
+pcx_content_type: how-to
+sidebar:
+  order: 1
+products:
+  - dynamic-workers
+---
+
+import { WranglerConfig } from "~/components";
+
+Bindings grant Dynamic Workers access to specific APIs and resources. They are similar to [regular Workers bindings](/workers/runtime-apis/bindings/), but Dynamic Worker bindings do not typically point at platform resources like KV namespaces or R2 buckets. Instead, they point to **anything you define**.
+
+When using Dynamic Workers, you can create your own bindings by defining arbitrary [Workers RPC](/workers/runtime-apis/rpc/) interfaces.
+
+## Capability-based Sandboxing
+
+Workers RPC &mdash; also known as [Cap'n Web](https://github.com/cloudflare/capnweb) &mdash; is an RPC system designed to present rich TypeScript interfaces across a security boundary. Cap'n Web implements a capability-based security model: it supports passing objects "by reference" across RPC boundaries. When you receive an object reference (also known as a "stub") over RPC, you are implicitly granted the ability to call that object's methods, which makes further RPC calls back to the original object. Objects do not have any URL or global identifier, so the only way to address one is to have received a stub pointing to it &mdash; if you have not received a stub, you cannot call the object.
+
+Capability-based security is essential to the design of most successful sandboxes, though it is often an implementation detail that users and developers do not see. Android has Binder, Chrome has Mojo, and Cloudflare Workers has Cap'n Proto and Cap'n Web.
+
+Dynamic Workers expose this power directly so that you can build your own strong sandbox.
+
+## Custom Bindings with Dynamic Workers
+
+Imagine you are using Dynamic Workers to implement an agent that can post messages to a chat room. Different agents can post to different chat rooms, but any particular agent is only allowed to post to one specific chat room. The agent writes code, which you run in a Dynamic Worker.
+
+You want to make sure the code can only access the _specific_ chat room that the given agent is authorized for. One approach is to pass the chat room name into the Dynamic Worker, then verify that all requests from the Worker are addressed to the correct room. However, Dynamic Workers offers a better approach: **give the Worker a binding that represents the _specific_ chat room.**
+
+To define a custom binding, your parent Worker implements a [`WorkerEntrypoint` class](/workers/runtime-apis/bindings/service-bindings/rpc#the-workerentrypoint-class) and exports it. In this example, you define a class called `ChatRoom`. Rather than export a new class for every possible chat room, you specialize the interface for a specific room using [`ctx.props`](/workers/runtime-apis/context#props).
+
+```ts
+import { WorkerEntrypoint } from "cloudflare:workers";
+
+// Define the ChatRoom RPC interface.
+//
+// This MUST be exported from the top-level module of the
+// parent worker.
+export class ChatRoom extends WorkerEntrypoint<Cloudflare.Env, ChatRoomProps> {
+	// Any methods defined on this class will be callable
+	// by the Dynamic Worker.
+
+	// Method to post a message to chat.
+	async post(text: string): Promise<void> {
+		let { apiKey, botName, roomName } = this.ctx.props;
+
+		// Prefix the message with the bot's name.
+		text = `[${botName}]: ${text}`;
+
+		// Send it to the chat service.
+		await postToChat(apiKey, roomName, text);
+	}
+}
+
+// Define a props type which specializes our `ChatRoom` for
+// a particular client. This can be any serializable object
+// type.
+type ChatRoomProps = {
+	// API key to the remote chat API.
+	apiKey: string;
+
+	// Name of the room to post to.
+	roomName: string;
+
+	// Name of the bot posting.
+	botName: string;
+};
+```
+
+Now we can load a Dynamic Worker and give it a Chat Room. To create the chat room RPC stub, we use [`ctx.exports`](/workers/runtime-apis/context#exports), then we simply pass it into the Dynamic Worker Loader in the `env` object:
+
+```ts
+// Let's say our agent wrote this code.
+let codeFromAgent = `
+  export class Agent extends WorkerEntrypoint {
+		async run() {
+			await this.env.CHAT_ROOM.post("Hello!");
+		}
+	}
+`;
+
+// Set up the props for our agent.
+let props: ChatRoomProps = {
+	apiKey,
+	roomName: "#bot-chat",
+	botName: "Robo",
+};
+
+// Create a service stub representing our chat room
+// capability. The system automatically creates
+// `ctx.exports.ChatRoom` because our top-level module
+// exported a `WorkerEntrypoint` called `ChatRoom`.
+let chatRoom = ctx.exports.ChatRoom({ props });
+
+// `chatRoom` is now an RPC service stub. We could
+// call methods on it, like `chatRoom.post()`.
+
+let worker = env.LOADER.load({
+	// We can define the child Worker's `env` to be
+	// any serializable object. Service stubs are
+	// serializable, so we'll pass in our stub.
+	env: {
+		CHAT_ROOM: chatRoom,
+	},
+
+	// Specify code and other options as usual...
+	compatibilityDate: "$today",
+	mainModule: "index.js",
+	modules: { "index.js": codeFromAgent },
+	globalOutbound: null,
+});
+
+return worker.getEntrypoint("Agent").run();
+```
+
+This achieves an elegant sandbox:
+
+- The agent can only post to the desired room.
+- The posts are made using an API key, but the API key is never visible to the agent.
+- Messages are rewritten to include the agent's identity (this is just an example &mdash; you can perform any rewrite).
+- All of this happens without any cooperation from the agent itself. It does not know any of this is happening.
+
+### Provide TypeScript types to your agent
+
+For an AI agent to write code against your bindings, it needs to know the interface. Provide your agent with TypeScript types describing the API, including comments documenting each declaration. Modern LLMs understand TypeScript well, making it the most concise way to describe a JavaScript API. Even if the agent writes plain JavaScript, you can still describe the interface using TypeScript.
+
+Declare your `WorkerEntrypoint` class to extend the TypeScript type, ensuring the implementation matches.
+
+## Passing standard Workers bindings
+
+You may want to pass a standard Workers binding, such as a KV namespace or R2 bucket, into a Dynamic Worker. This is not directly supported at this time. However, you can create a wrapper RPC interface using the approach outlined above that emulates a regular Workers binding by forwarding to a real binding in its implementation. A wrapper may be preferable because it gives you the opportunity to narrow the scope of the binding, filter requests, or rewrite them. Direct binding passthrough is planned for a future release.
