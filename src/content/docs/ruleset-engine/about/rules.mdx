@@ -1,0 +1,61 @@
+---
+title: Rules
+pcx_content_type: concept
+description: Structure and properties of rules in the Ruleset Engine.
+products:
+  - ruleset-engine
+sidebar:
+  order: 4
+---
+
+import { Render } from "~/components";
+
+A rule is the basic unit of logic in the Ruleset Engine. Each rule defines a filter and an action to perform on incoming requests that match the filter.
+
+- The rule [expression](/ruleset-engine/rules-language/expressions/), also called filter expression, defines the scope of the rule (which requests it applies to).
+- The rule [action](/ruleset-engine/rules-language/actions/) defines what happens when a request matches the expression.
+
+Rule expressions are defined using the [Rules language](/ruleset-engine/rules-language/).
+
+## Example
+
+For example, consider the following ruleset with four rules (R1, R2, R3, and R4). For a given incoming request:
+
+- Rules R1 and R2 match the request properties. Their actions run: R1 executes a managed ruleset (every rule in that managed ruleset is evaluated), and R2 logs an event associated with the current phase.
+- Rules R3 and R4 do not match the request, so their actions do not run.
+- Since no rule executes a [terminating action](/ruleset-engine/rules-language/actions/) such as _Block_, it proceeds to the next phase.
+
+![Example of a rule execution scenario. Defines a ruleset with four rules, where the first rule executes a managed ruleset.](~/assets/images/ruleset-engine/rulesets-rules-example.png)
+
+Rules can have additional features through specific Cloudflare products. You may have more fields available for rule expressions, perform different actions, or configure additional behavior in a given phase.
+
+## Rule evaluation
+
+When evaluating a rule, Cloudflare compares the values of request or response properties (obtained through [fields](/ruleset-engine/rules-language/fields/)) to the values defined in the rule's filter expression.
+
+If the entire expression evaluates to `true`, the rule matches and Cloudflare triggers the configured [action](/ruleset-engine/rules-language/actions/). If the expression evaluates to `false`, the rule does not match and Cloudflare skips its action.
+
+<Render file="rule-terminating-actions" product="ruleset-engine" />
+
+When you use `true` as the rule filter expression, this means "apply the rule to every incoming request" at the current [phase](/ruleset-engine/about/phases/) level, which can be zone or account.
+
+:::note[Notes]
+
+- A rule filter expression must evaluate to a boolean value (either `true` or `false`).
+- Rules of specific Cloudflare products, such as [Transform Rules](/rules/transform/), may include other expressions used to specify dynamic values. These expressions do not have to evaluate to a boolean value.
+
+:::
+
+### Field values during rule evaluation
+
+While evaluating rules for a given request or response, the values of all [fields](/ruleset-engine/rules-language/fields/) are immutable within each phase. This means that if an earlier rule in the same phase modifies a value (for example, rewrites a URL), later rules in that phase still see the original value. Since [a phase is composed of account and zone-level rules](/ruleset-engine/about/phases/), field values are also immutable between account and zone rules in a given phase. However, field values may change between phases.
+
+For example:
+
+- If a [URL rewrite rule](/rules/transform/url-rewrite/) #1 updates the URI path or the query string of a request, URL rewrite rule #2 will not take these earlier changes into consideration.
+- If a [request header transform rule](/rules/transform/request-header-modification/) #1 sets the value of an HTTP request header, request header transform rule #2 will not be able to read or evaluate this new value.
+- If a URL rewrite rule updates the URI path or query string of a request, the `http.request.uri`, `http.request.uri.*`, and `http.request.full_uri` fields will have a different value in phases after the `http_request_transform` phase (where URL Rewrite Rules are executed).
+
+:::note
+If you want to use the original field values in rules evaluated later, you can use raw fields (for example, `raw.http.request.uri.path`) in their expressions. These special fields are immutable during the entire request evaluation workflow. For a list of raw fields, refer to the [Fields reference](/ruleset-engine/rules-language/fields/reference/?field-category=Raw+fields).
+:::
