@@ -1,0 +1,418 @@
+---
+pcx_content_type: configuration
+title: Gradual deployments
+head: []
+description: Incrementally deploy code changes to your Workers with gradual deployments.
+sidebar:
+  order: 1
+---
+
+import { Example, DashButton } from "~/components";
+
+Gradual deployments give you the ability to incrementally deploy new [versions](/workers/configuration/versions-and-deployments/#versions) of Workers by splitting traffic across versions.
+
+![Gradual Deployments](~/assets/images/workers/platform/versions-and-deployments/gradual-deployments.png)
+
+Using gradual deployments, you can:
+
+- Gradually shift traffic to a newer version of your Worker.
+- Monitor error rates and exceptions across versions using [analytics and logs](#observability) tooling.
+- [Roll back](/workers/configuration/versions-and-deployments/rollbacks/) to a previously stable version if you notice issues when deploying a new version.
+- Route requests to different version configurations based on named user segments using [cohort-based deployments](/workers/configuration/versions-and-deployments/cohort-based-deployments/).
+- Send requests to a specific version of your Worker using [version overrides](/workers/configuration/versions-and-deployments/version-overrides/).
+
+## How it works
+
+When you create a gradual deployment, you assign a percentage of traffic to each of two versions of your Worker. Each incoming request is routed to one of the two versions based on the configured percentages. For example, you can send 10% of traffic to a new version and 90% to the current stable version, then increase the new version's share as you gain confidence.
+
+By default, each request is independently assigned to a version based on the configured percentages. If you need requests from the same user or session to consistently reach the same version, you can configure [version affinity](#version-affinity).
+
+## Version affinity
+
+By default, the percentages configured when using gradual deployments operate on a per-request basis — a request has a X% probability of invoking one of two versions of the Worker in the [deployment](/workers/configuration/versions-and-deployments/#deployments).
+
+You may want requests associated with a particular identifier (such as user, session, or any unique ID) to be handled by a consistent version of your Worker to prevent version skew. Version skew occurs when there are multiple versions of an application deployed that are not forwards/backwards compatible. You can configure version affinity to prevent the Worker's version from changing back and forth on a per-request basis.
+
+You can do this by setting the `Cloudflare-Workers-Version-Key` header on the incoming request to your Worker. For example:
+
+```sh
+curl -s https://example.com -H 'Cloudflare-Workers-Version-Key: foo'
+```
+
+For a given [deployment](/workers/configuration/versions-and-deployments/#deployments), all requests with a version key set to `foo` will be handled by the same version of your Worker. The specific version of your Worker that the version key `foo` corresponds to is determined by the percentages you have configured for each Worker version in your deployment.
+
+You can set the `Cloudflare-Workers-Version-Key` header both when making an external request from the Internet to your Worker, as well as when making a subrequest from one Worker to another Worker using a [service binding](/workers/runtime-apis/bindings/service-bindings/).
+
+### Setting `Cloudflare-Workers-Version-Key` using Ruleset Engine
+
+You may want to extract a version key from certain properties of your request such as the URL, headers or cookies. You can configure a [Ruleset Engine](/ruleset-engine/) rule on your zone to do this. This allows you to specify version affinity based on these properties without having to modify the external client that makes the request.
+
+For example, if your worker serves video assets under the URI path `/assets/` and you wanted requests to each unique asset to be handled by a consistent version, you could define the following [request header transform rule](/rules/transform/request-header-modification/):
+
+<Example>
+
+Text in **Expression Editor**:
+
+```txt
+starts_with(http.request.uri.path, "/asset/")
+```
+
+Selected operation under **Modify request header**: _Set dynamic_
+
+**Header name**: `Cloudflare-Workers-Version-Key`
+
+**Value**: `regex_replace(http.request.uri.path, "/asset/(.*)", "${1}")`
+
+</Example>
+
+## Gradual deployments with static assets
+
+When your Worker serves [static assets](/workers/static-assets/), gradual deployments can cause asset compatibility issues where users receive HTML from one version that references assets only available in another version, leading to 404 errors.
+
+For detailed guidance on handling static assets during gradual rollouts, including specific examples and configuration steps, refer to [Gradual rollouts](/workers/static-assets/routing/advanced/gradual-rollouts/).
+
+## Gradual deployments for Durable Objects
+
+To provide [global uniqueness](/durable-objects/platform/known-issues/#global-uniqueness), only one version of each [Durable Object](/durable-objects/) can run at a time. This means that gradual deployments work slightly differently for Durable Objects.
+
+When you create a new gradual deployment for a Worker with Durable Objects, each Durable Object is assigned a Worker version based on the percentages you configured in your [deployment](/workers/configuration/versions-and-deployments/#deployments). This version will not change until you create a new deployment.
+
+![Gradual Deployments Durable Objects](~/assets/images/workers/platform/versions-and-deployments/durable-objects.png)
+
+### Example
+
+This example assumes that you have previously created 3 Durable Object instances with names "foo", "bar" and "baz".
+
+Your Worker is currently on a version that we will call version "A" and you want to gradually deploy a new version "B" of your Worker.
+
+Here is how the versions of your Durable Objects might change as you progress your gradual deployment:
+
+|          Deployment config          | "foo" | "bar" | "baz" |
+| :---------------------------------: | :---: | :---: | :---: |
+|        Version A: 100% <br/>        |   A   |   A   |   A   |
+| Version B: 20% <br/> Version A: 80% |   B   |   A   |   A   |
+| Version B: 50% <br/> Version A: 50% |   B   |   B   |   A   |
+|        Version B: 100% <br/>        |   B   |   B   |   B   |
+
+This is only an example, so the versions assigned to your Durable Objects may be different. However, the following is guaranteed:
+
+- For a given deployment, requests to each Durable Object will always use the same Worker version.
+- When you specify each version in the same order as the previous deployment and increase the percentage of a version, Durable Objects which were previously assigned that version will not be assigned a different version. In this example, Durable Object "foo" would never revert from version "B" to version "A".
+- The Durable Object will only be [reset](/durable-objects/observability/troubleshooting/#durable-object-reset-because-its-code-was-updated) when it is assigned a different version, so each Durable Object will only be reset once in this example.
+
+:::note
+Typically, a Worker bundle will define both the Durable Object class and a Worker that interacts with it. In this case, you cannot deploy changes to your Durable Object and its Worker independently.
+
+You should ensure that API changes between your Durable Object and its Worker are [forwards and backwards compatible](/durable-objects/platform/known-issues/#code-updates) whether you are using gradual deployments or not. However, using gradual deployments will make it even more likely that different versions of your Durable Objects and its Worker will interact with each other.
+:::
+
+### Migrations
+
+Versions of Worker bundles containing new Durable Object migrations cannot be uploaded. This is because Durable Object migrations are atomic operations. Durable Object migrations can be deployed with the following command:
+
+```sh
+npx wrangler versions deploy
+```
+
+To limit the blast radius of Durable Object migration deployments, migrations should be deployed independently of other code changes.
+
+To understand why Durable Object migrations are atomic operations, consider the hypothetical example of gradually deploying a delete migration. If a delete migration were applied to 50% of Durable Object instances, then Workers requesting those Durable Object instances would fail because they would have been deleted.
+
+To do this without producing errors, a version of the Worker which does not depend on any Durable Object instances would have to have already been rolled out. Then, you can deploy a delete migration without affecting any traffic and there is no reason to do so gradually.
+
+## Observability
+
+When using gradual deployments, you may want to attribute Workers invocations to a specific version in order to get visibility into the impact of deploying new versions.
+
+### Workers Logs
+
+If you have [Workers Logs](/workers/observability/logs/workers-logs/) enabled, every invocation is automatically tagged with a `scriptVersion` object containing the version ID that handled the request. You can view this in the [Workers Observability dashboard](https://dash.cloudflare.com/?to=/:account/workers-and-pages/observability/) without any additional setup.
+
+Each log entry includes a `$workers.scriptVersion.id` field, which you can use to filter, group, and compare invocations across versions. For Durable Object invocations, each log entry also includes `$workers.durableObjectId` and `$workers.entrypoint`, allowing you to see which specific Durable Object instance handled a request and which version it was running.
+
+To enable Workers Logs, add the following to your Wrangler configuration:
+
+```json
+{
+	"observability": {
+		"enabled": true
+	}
+}
+```
+
+### Logpush
+
+For long-term log retention or integration with external monitoring tools, you can use [Workers Logpush](/workers/observability/logs/logpush/). A `ScriptVersion` object is available in the `workers_trace_events` dataset. `ScriptVersion` can only be added through the Logpush API right now. Sample API call:
+
+```bash
+curl -X POST 'https://api.cloudflare.com/client/v4/accounts/<ACCOUNT_ID>/logpush/jobs' \
+-H 'Authorization: Bearer <TOKEN>' \
+-H 'Content-Type: application/json' \
+-d '{
+"name": "workers-logpush",
+"output_options": {
+    "field_names": ["Event", "EventTimestampMs", "Outcome", "Logs", "ScriptName", "ScriptVersion"],
+},
+"destination_conf": "<DESTINATION_URL>",
+"dataset": "workers_trace_events",
+"enabled": true
+}'| jq .
+```
+
+`ScriptVersion` is an object with the following structure:
+
+```json
+scriptVersion: {
+    id: "<UUID>",
+    message: "<MESSAGE>",
+    tag: "<TAG>"
+}
+```
+
+### Runtime binding
+
+Use the [Version metadata binding](/workers/runtime-apis/bindings/version-metadata/) to access version ID or version tag in your Worker. This allows you to include version information in your application's own responses or logs.
+
+## Limits
+
+### Deployments limit
+
+You can only create a new deployment with the last 100 uploaded versions of your Worker.
+
+## Walkthrough
+
+This section walks you through a complete gradual deployment from start to finish using [Wrangler](#via-wrangler) or the [Cloudflare dashboard](#via-the-cloudflare-dashboard). You will:
+
+- Create a Worker and deploy it.
+- Upload a new version without deploying it.
+- Split traffic between the two versions.
+- Verify the split with curl.
+- Test version overrides to target a specific version.
+- Progress the new version to 100%.
+
+### Via Wrangler
+
+:::note
+Minimum required Wrangler version: 3.40.0. Versions before 3.73.0 require you to specify a `--x-versions` flag.
+:::
+
+#### 1. Create and deploy a new Worker
+
+Create a new Worker and deploy it. This becomes your first version — call it Version A:
+
+```sh
+npm create cloudflare@latest gradual-deploy-demo -- --type=hello-world
+cd gradual-deploy-demo
+npx wrangler deploy
+```
+
+Note the **Version ID** in the output. Verify it is live:
+
+```sh
+curl -s https://gradual-deploy-demo.YOUR_SUBDOMAIN.workers.dev
+```
+
+You should see the default `"Hello World!"` response.
+
+#### 2. Add a version endpoint
+
+To make it easy to see which version is handling a request, add a `/version` route. Replace the contents of `src/index.ts`:
+
+```ts
+export default {
+	async fetch(request, env) {
+		const url = new URL(request.url);
+
+		if (url.pathname === "/version") {
+			return Response.json({
+				workerVersionId: env.CF_VERSION_METADATA?.id ?? "unknown",
+				timestamp: new Date().toISOString(),
+			});
+		}
+
+		return new Response("Version A");
+	},
+} satisfies ExportedHandler<Env>;
+```
+
+Add a [version metadata binding](/workers/runtime-apis/bindings/version-metadata/) to your Wrangler configuration so the Worker can report its own version ID:
+
+```json
+{
+	"version_metadata": {
+		"binding": "CF_VERSION_METADATA"
+	}
+}
+```
+
+Deploy the updated Worker:
+
+```sh
+npx wrangler deploy
+```
+
+Verify the `/version` endpoint returns the current version ID:
+
+```sh
+curl -s https://gradual-deploy-demo.YOUR_SUBDOMAIN.workers.dev/version
+```
+
+```json
+{
+	"workerVersionId": "00363d26-4ef1-4339-8b9f-2bdf44ab879e",
+	"timestamp": "2025-01-15T12:00:00.000Z"
+}
+```
+
+#### 3. Make a code change and upload Version B
+
+Change the response so you can tell the two versions apart. In `src/index.ts`, change `"Version A"` to `"Version B"`:
+
+```ts
+return new Response("Version B");
+```
+
+Upload the new code **without deploying it**:
+
+```sh
+npx wrangler versions upload
+```
+
+Note the new **Version ID** from the output. This is Version B. It is not serving any traffic yet.
+
+You can verify nothing changed — all requests still hit Version A:
+
+```sh
+curl -s https://gradual-deploy-demo.YOUR_SUBDOMAIN.workers.dev
+# Output: Version A
+```
+
+#### 4. List your versions
+
+See all uploaded versions:
+
+```sh
+npx wrangler versions list
+```
+
+You will see both Version A and Version B with their IDs and timestamps.
+
+#### 5. Create a gradual deployment
+
+Split traffic so that 90% goes to Version A and 10% goes to Version B. Replace the version IDs with your own:
+
+```sh
+npx wrangler versions deploy VERSION_A_ID@90% VERSION_B_ID@10% -y
+```
+
+:::note
+You can also run `npx wrangler versions deploy` without arguments to use the interactive prompt, which walks you through selecting versions and setting percentages.
+:::
+
+#### 6. Verify the traffic split
+
+Hit the `/version` endpoint repeatedly and observe that most responses return Version A's ID, with some returning Version B's:
+
+```sh
+for i in $(seq 1 20); do
+  curl -s https://gradual-deploy-demo.YOUR_SUBDOMAIN.workers.dev/version
+  echo
+done
+```
+
+With a 90/10 split, roughly 18 out of 20 requests will show Version A's ID and 2 will show Version B's. The exact numbers will vary — this is probabilistic, not deterministic.
+
+You can also verify by hitting the root path and checking whether the response says `"Version A"` or `"Version B"`:
+
+```sh
+for i in $(seq 1 20); do
+  curl -s https://gradual-deploy-demo.YOUR_SUBDOMAIN.workers.dev
+done
+```
+
+#### 7. Test a specific version with a version override
+
+You can bypass the percentage-based routing and force a request to a specific version using the `Cloudflare-Workers-Version-Overrides` header. This is useful for testing the new version before exposing it to any real traffic.
+
+Force a request to Version B:
+
+```sh
+curl -s https://gradual-deploy-demo.YOUR_SUBDOMAIN.workers.dev/version \
+  -H 'Cloudflare-Workers-Version-Overrides: gradual-deploy-demo="VERSION_B_ID"'
+```
+
+The response will always show Version B's ID, regardless of the configured percentages. For more details, refer to [version overrides](/workers/configuration/versions-and-deployments/version-overrides/).
+
+#### 8. Check the active deployment
+
+View the current deployment and its version split:
+
+```sh
+npx wrangler deployments list
+```
+
+The output shows the deployment history, including which versions are active and their percentages.
+
+#### 9. Increase traffic to the new version
+
+As you gain confidence, shift more traffic to Version B:
+
+```sh
+npx wrangler versions deploy VERSION_A_ID@50% VERSION_B_ID@50% -y
+```
+
+Then verify the split again:
+
+```sh
+for i in $(seq 1 20); do
+  curl -s https://gradual-deploy-demo.YOUR_SUBDOMAIN.workers.dev
+done
+```
+
+You should now see a roughly even mix of `"Version A"` and `"Version B"` responses.
+
+#### 10. Complete the deployment
+
+Deploy Version B to 100% of traffic:
+
+```sh
+npx wrangler versions deploy VERSION_B_ID@100% -y
+```
+
+Verify all traffic is now on Version B:
+
+```sh
+curl -s https://gradual-deploy-demo.YOUR_SUBDOMAIN.workers.dev
+# Output: Version B
+
+curl -s https://gradual-deploy-demo.YOUR_SUBDOMAIN.workers.dev/version
+# workerVersionId will be Version B's ID
+```
+
+### Via the Cloudflare dashboard
+
+1. In the Cloudflare dashboard, go to the **Workers & Pages** page.
+
+   <DashButton url="/?to=/:account/workers-and-pages" />
+
+2. Select **Create application** > **Hello World** template > deploy your Worker. This creates Version A.
+3. Go to the online code editor through **Edit code**. Change the response content so you can tell the two versions apart.
+4. Select the **down arrow** next to **Deploy** > **Save**. This uploads a new version (Version B) without deploying it.
+5. Go to **Deployments** and select **Deploy Version**. Choose both versions and set the percentages (for example, 90% Version A, 10% Version B).
+6. Test the split by running curl repeatedly:
+
+   ```sh
+   for i in $(seq 1 20); do
+     curl -s https://YOUR_WORKER.YOUR_SUBDOMAIN.workers.dev
+   done
+   ```
+
+   You should see responses from both versions, distributed according to the percentages you set.
+
+7. When you are ready, go back to **Deployments**, select **Deploy Version**, and set Version B to 100%.
+
+## Related resources
+
+- [Cohort-based deployments](/workers/configuration/versions-and-deployments/cohort-based-deployments/) — Route requests to different version configurations based on named user segments instead of a single percentage split.
+- [Version overrides](/workers/configuration/versions-and-deployments/version-overrides/) — Send a specific request to a specific version of your Worker, bypassing the percentage-based routing.
+- [Tutorial: Controlled Durable Object rollouts](/workers/configuration/versions-and-deployments/testing-gradual-deployments/) — Deploy new code to specific Durable Object instances instead of leaving it to chance.
