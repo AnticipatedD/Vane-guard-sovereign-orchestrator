@@ -1,0 +1,54 @@
+---
+pcx_content_type: reference
+description: Reference information for HTTP test in Zero Trust analytics.
+products:
+  - cloudflare-one
+title: HTTP test
+sidebar:
+  order: 1
+tags:
+  - Windows
+  - MacOS
+  - Linux
+  - Android
+---
+
+import { Details, Render } from "~/components";
+
+<Details header="Feature availability">
+| [Client modes](/cloudflare-one/team-and-resources/devices/cloudflare-one-client/configure/modes/)    | [Zero Trust plans](https://www.cloudflare.com/teams-pricing/) |
+| ------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| <ul> <li> Traffic and DNS mode </li> <li> Traffic only mode </li> </ul> | All plans                                                     |
+
+| System   | Availability | Minimum client version |
+| -------- | ------------ | -------------------- |
+| Windows  | ✅           | 2023.3.381           |
+| macOS    | ✅           | 2023.3.381           |
+| Linux    | ✅           | 2023.3.398           |
+| iOS      | ❌           |                      |
+| Android  | ✅           | 1.0                  |
+| ChromeOS | ✅           | 1.0                  |
+
+</Details>
+
+<Render file="dex/http-test-intro" product="cloudflare-one" />
+
+## Create a test
+
+<Render file="dex/http-test-create-steps" product="cloudflare-one" />
+
+## Test results
+
+<Render file="dex/http-test-results-metrics" product="cloudflare-one" />
+
+## Export DEX application test logs
+
+<Render
+	file="dex/logpush-export"
+	product="cloudflare-one"
+	params={{ applicationTests: true }}
+/>
+
+## Related resources
+
+- [DEX rules](/cloudflare-one/insights/dex/rules/) - Specify the target group of a test.
