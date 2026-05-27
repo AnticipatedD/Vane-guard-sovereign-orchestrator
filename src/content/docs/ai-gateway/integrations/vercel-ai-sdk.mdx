@@ -1,0 +1,101 @@
+---
+title: Vercel AI SDK
+pcx_content_type: configuration
+sidebar:
+  order: 3
+---
+
+import {
+  Details,
+  Tabs,
+  TabItem
+} from "~/components";
+
+The [Vercel AI SDK](https://sdk.vercel.ai/) is a TypeScript library for building AI applications. The SDK supports many different AI providers, tools for streaming completions, and more.
+To use Cloudflare AI Gateway with Vercel AI SDK, you will need to use the `ai-gateway-provider` package.
+
+## Installation
+
+```bash
+npm install ai-gateway-provider
+```
+
+## Examples
+
+<Details header="With Key in Request">
+<Tabs>
+<TabItem label="With Authenticated Gateway">
+```js title=""
+import { createAiGateway } from 'ai-gateway-provider';
+import { createOpenAI } from 'ai-gateway-provider/providers/openai';
+import { generateText } from "ai";
+
+const aigateway = createAiGateway({
+  accountId: "{CLOUDFLARE_ACCOUNT_ID}",
+  gateway: '{GATEWAY_NAME}',
+  apiKey: '{CF_AIG_TOKEN}',
+});
+
+const openai = createOpenAI({ apiKey: '{OPENAI_API_KEY}' });
+
+const { text } = await generateText({
+  model: aigateway(openai.chat("gpt-5.1")),
+  prompt: 'Write a vegetarian lasagna recipe for 4 people.',
+});
+```
+</TabItem>
+<TabItem label="Unauthenticated Gateway">
+```js title=""
+import { createAiGateway } from 'ai-gateway-provider';
+import { createOpenAI } from 'ai-gateway-provider/providers/openai';
+import { generateText } from "ai";
+
+const aigateway = createAiGateway({
+  accountId: "{CLOUDFLARE_ACCOUNT_ID}",
+  gateway: '{GATEWAY_NAME}',
+});
+
+const openai = createOpenAI({ apiKey: '{OPENAI_API_KEY}' });
+
+const { text } = await generateText({
+  model: aigateway(openai.chat("gpt-5.1")),
+  prompt: 'Write a vegetarian lasagna recipe for 4 people.',
+});
+```
+</TabItem>
+</Tabs>
+</Details>
+<Details header="With Stored Keys (BYOK) / Unified Billing" open>
+```js title=""
+import { createAiGateway } from 'ai-gateway-provider';
+import { createOpenAI } from 'ai-gateway-provider/providers/openai';
+import { generateText } from "ai";
+
+const aigateway = createAiGateway({
+  accountId: "{CLOUDFLARE_ACCOUNT_ID}",
+  gateway: '{GATEWAY_NAME}',
+  apiKey: '{CF_AIG_TOKEN}',
+});
+
+const openai = createOpenAI();
+
+const { text } = await generateText({
+  model: aigateway(openai.chat("gpt-5.1")),
+  prompt: 'Write a vegetarian lasagna recipe for 4 people.',
+});
+```
+</Details>
+
+### Fallback Providers
+
+To specify model or provider fallbacks to handle request failures and ensure reliability, you can pass an array of models to the `model` option.
+
+```js title=""
+const { text } = await generateText({
+  model: aigateway([
+		openai.chat("gpt-5.1"), anthropic("claude-sonnet-4-5")
+  ]),
+  prompt: 'Write a vegetarian lasagna recipe for 4 people.',
+});
+```
+
