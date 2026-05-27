@@ -1,0 +1,90 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 820 460" fill="none">
+  <style>
+    text { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+    .label { font-size: 13px; fill: #1a1a1a; font-weight: 600; }
+    .sublabel { font-size: 11px; fill: #6b7280; }
+    .cmd { font-size: 11px; fill: #6b7280; font-family: 'SF Mono', 'Fira Code', monospace; }
+    .heading { font-size: 14px; fill: #1a1a1a; font-weight: 600; }
+    .box { rx: 8; stroke-width: 1.5; }
+    .box-preview { fill: #eff6ff; stroke: #3b82f6; }
+    .box-bad { fill: #fef2f2; stroke: #ef4444; }
+    .box-warn { fill: #fffbeb; stroke: #f59e0b; }
+    .box-good { fill: #f0fdf4; stroke: #22c55e; }
+    .box-trigger { fill: #f9fafb; stroke: #d1d5db; }
+    .arrow { stroke: #9ca3af; stroke-width: 2; fill: none; marker-end: url(#arr); }
+    .arrow-red { stroke: #ef4444; stroke-width: 2; fill: none; marker-end: url(#arr-red); }
+    .arrow-amber { stroke: #f59e0b; stroke-width: 2; fill: none; marker-end: url(#arr-amber); }
+    .row-label { font-size: 11px; fill: #9ca3af; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+  </style>
+  <defs>
+    <marker id="arr" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#9ca3af"/>
+    </marker>
+    <marker id="arr-red" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#ef4444"/>
+    </marker>
+    <marker id="arr-amber" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#f59e0b"/>
+    </marker>
+  </defs>
+
+  <!-- Title -->
+  <text x="410" y="22" text-anchor="middle" class="heading">What happens when you skip Preview Defaults configuration</text>
+
+  <!-- ==================== -->
+  <!-- PATH 1: Skip entirely -->
+  <!-- ==================== -->
+  <text x="410" y="54" text-anchor="middle" class="label">Path 1: Skip configuration entirely</text>
+  <text x="410" y="70" text-anchor="middle" class="sublabel">No dashboard wizard, no previews block, no API call</text>
+
+  <rect x="290" y="82" width="240" height="44" class="box box-preview"/>
+  <text x="410" y="100" text-anchor="middle" class="cmd">wrangler preview</text>
+  <text x="410" y="114" text-anchor="middle" class="sublabel">Preview Defaults are empty ({})</text>
+
+  <!-- Arrows split down to labels -->
+  <line x1="340" y1="126" x2="200" y2="148" class="arrow-red"/>
+  <line x1="480" y1="126" x2="620" y2="148" class="arrow-red"/>
+
+  <!-- Left: vars/secrets -->
+  <text x="200" y="168" text-anchor="middle" class="sublabel" style="fill: #ef4444; font-weight: 600;">Variables and Secrets</text>
+  <rect x="95" y="178" width="210" height="44" class="box box-bad"/>
+  <text x="200" y="196" text-anchor="middle" class="label" style="fill: #dc2626;">Empty — runtime error</text>
+  <text x="200" y="210" text-anchor="middle" class="sublabel">Not inherited from production</text>
+
+  <!-- Right: storage -->
+  <text x="620" y="168" text-anchor="middle" class="sublabel" style="fill: #ef4444; font-weight: 600;">KV, R2, D1, Durable Objects</text>
+  <rect x="510" y="178" width="220" height="44" class="box box-bad"/>
+  <text x="620" y="196" text-anchor="middle" class="label" style="fill: #dc2626;">Missing — runtime error</text>
+  <text x="620" y="210" text-anchor="middle" class="sublabel">Bindings not in Preview Defaults</text>
+
+  <!-- Verdict -->
+  <rect x="310" y="236" width="200" height="22" rx="4" fill="#f0fdf4" stroke="#22c55e" stroke-width="1"/>
+  <text x="410" y="251" text-anchor="middle" class="sublabel" style="fill: #15803d; font-weight: 600;">Everything fails loudly — you notice</text>
+
+  <!-- Divider -->
+  <line x1="60" y1="274" x2="760" y2="274" stroke="#e5e7eb" stroke-width="1" stroke-dasharray="6,4"/>
+
+  <!-- ============================ -->
+  <!-- PATH 2: Dashboard, leave defaults -->
+  <!-- ============================ -->
+  <text x="410" y="298" text-anchor="middle" class="label">Path 2: Dashboard wizard with "Use production value" left checked</text>
+  <text x="410" y="314" text-anchor="middle" class="sublabel">The default for storage bindings in the dashboard</text>
+
+  <rect x="290" y="326" width="240" height="44" class="box box-preview"/>
+  <text x="410" y="344" text-anchor="middle" class="cmd">wrangler preview</text>
+  <text x="410" y="358" text-anchor="middle" class="sublabel">Preview Defaults have prod resources</text>
+
+  <!-- Arrows split down to labels -->
+  <line x1="340" y1="370" x2="200" y2="392" class="arrow-red"/>
+  <line x1="480" y1="370" x2="620" y2="392" class="arrow-amber"/>
+
+  <!-- Left: vars/secrets still empty -->
+  <text x="200" y="412" text-anchor="middle" class="sublabel" style="fill: #ef4444; font-weight: 600;">Variables and Secrets</text>
+  <rect x="95" y="422" width="210" height="26" class="box box-bad"/>
+  <text x="200" y="439" text-anchor="middle" class="sublabel" style="fill: #dc2626; font-weight: 600;">Empty — runtime error (loud)</text>
+
+  <!-- Right: storage points at prod -->
+  <text x="620" y="412" text-anchor="middle" class="sublabel" style="fill: #f59e0b; font-weight: 600;">KV, R2, D1, Durable Objects</text>
+  <rect x="505" y="422" width="230" height="26" class="box box-warn"/>
+  <text x="620" y="439" text-anchor="middle" class="sublabel" style="fill: #92400e; font-weight: 600;">Points at production (silent, dangerous)</text>
+</svg>

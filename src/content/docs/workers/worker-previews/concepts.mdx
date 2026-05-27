@@ -1,0 +1,374 @@
+---
+pcx_content_type: concept
+title: Concepts
+description: Understand how Worker Previews fit into your development workflow and how they keep your preview traffic separate from production.
+sidebar:
+  order: 2
+---
+
+import { Tabs, TabItem } from "~/components";
+
+## Quick reference
+
+| I want to... | Do this | Details |
+| --- | --- | --- |
+| **Test my code on a branch** without affecting production | `wrangler preview` | [Get started](/workers/worker-previews/#2-create-your-first-preview) |
+| **Deploy to production at 100%** immediately | `wrangler deploy` | [Deploy on merge](/workers/worker-previews/workflows/with-builds/#deploy-on-merge) |
+| **Deploy to production gradually** (10%, 50%, 100%) | `wrangler versions upload` then `wrangler versions deploy` | [Gradual rollouts](/workers/worker-previews/rollouts-and-rollbacks/) |
+| **Roll back production** to a previous version | `wrangler versions deploy --version-id <PREV> --percentage 100` | [Rollbacks](/workers/worker-previews/rollouts-and-rollbacks/) |
+| **Configure what resources** my previews use | Set up Preview Defaults | [Configure bindings](/workers/worker-previews/#1-configure-preview-bindings-and-settings) |
+| **Isolate Durable Objects** in previews | Use `ctx.exports` | [DO isolation](/workers/worker-previews/durable-object-isolation/) |
+| **Serve previews on my own domain** | Enable preview custom domains | [Custom domains](/workers/worker-previews/custom-domains/) |
+| **Test branches with isolation** instead of version URLs | Use `wrangler preview` for testing, keep `wrangler versions upload` for production rollouts | [How they differ](/workers/worker-previews/concepts/#previews-vs-version-urls) |
+
+---
+
+## Production commands vs preview command
+
+There are two pipelines for your Worker — production and preview. Each has its own commands, and they do not overlap.
+
+![Production vs preview commands](~/assets/images/workers/worker-previews/commands-production-vs-preview.svg)
+
+**Production commands** create versions on your production Worker and use production bindings:
+
+| Command | What it does |
+| --- | --- |
+| `wrangler deploy` | Creates a version and deploys it to 100% of production traffic immediately |
+| `wrangler versions upload` | Creates a version without deploying it. Use this when you want to [gradually roll out](/workers/worker-previews/rollouts-and-rollbacks/) instead of deploying to 100% immediately. |
+| `wrangler versions deploy` | The second step after `wrangler versions upload`. Routes production traffic to the uploaded version at a percentage you choose (for example, 10% new, 90% old). |
+
+**Preview command** creates an isolated environment that is completely separate from production:
+
+| Command | What it does |
+| --- | --- |
+| `wrangler preview` | Creates or updates a preview with its own URL, bindings, secrets, and data stores. Does not create a production version. |
+
+When you are happy with your changes, you ship to production separately with `wrangler deploy`. Previews and production are independent — previews are for testing, deployments are for shipping.
+
+### The basic flow
+
+```
+1. Write code on a branch
+2. wrangler preview        → creates an isolated preview with its own URL
+3. Test against the preview URL
+4. Iterate — each wrangler preview push updates the same preview
+5. wrangler deploy          → ships to production (separate step)
+```
+
+## What is a preview?
+
+A preview is an isolated copy of your Worker tied to a Git branch. It has:
+
+- **Its own URL** — `my-branch-my-worker.subdomain.workers.dev`. This URL is stable and always points to your latest push.
+- **Its own bindings** — KV, R2, Durable Objects, D1 can each point to separate resources so preview traffic never touches production data.
+- **Its own secrets and variables** — you can set different API keys, feature flags, or configuration for testing.
+
+A preview persists across code pushes. Every time you run `wrangler preview` on the same branch, it updates the preview with your latest code. The URL stays the same.
+
+## What happens if I just run `wrangler preview` right now?
+
+Previews are **not automatically isolated**. What happens depends on whether you configured [Preview Defaults](#what-are-preview-defaults) first:
+
+**If you skip configuration entirely** (no dashboard wizard, no `previews` block, no API call): Preview Defaults are empty (`{}`). Every binding, variable, and secret is missing. Your Worker errors at runtime when it tries to access `env.DB`, `env.CACHE`, `env.MY_SECRET`, etc. This is a **loud failure** — you notice immediately.
+
+**If you go through the dashboard wizard but leave "Use production value" checked** (the default for storage bindings): Variables and secrets are still empty (loud failure), but KV, R2, D1, and Durable Objects **point at production resources**. Your preview silently reads and writes to your production data. This is the **dangerous case** — the loud errors from missing vars may mask the silent problem of production data access from storage bindings.
+
+![What happens when you skip Preview Defaults configuration](~/assets/images/workers/worker-previews/skip-preview-defaults.svg)
+
+Always [configure Preview Defaults](#what-are-preview-defaults) before creating your first preview.
+
+### Isolation defaults per resource type
+
+The table below shows what each resource type does in a preview by default, and what you need to do to isolate it. "Default" here means what happens after you go through the dashboard setup wizard without changing anything.
+
+| Resource | Default behavior | What to do for isolation |
+| --- | --- | --- |
+| **Environment variables** | Empty. Not inherited from production. | Set values in the `previews.vars` block or in the dashboard under **Variables and Secrets** > **Previews**. |
+| **Secrets** | Empty. Not inherited from production. | `wrangler preview secret put` or set in the dashboard under **Variables and Secrets** > **Previews**. |
+| **KV namespaces** | Points at production ("Use production value" is checked by default). | Uncheck "Use production value" in the dashboard, select a separate namespace. |
+| **R2 buckets** | Points at production ("Use production value" is checked by default). | Uncheck "Use production value", configure a separate bucket in Preview Defaults. |
+| **D1 databases** | Points at production ("Use production value" is checked by default). | Uncheck "Use production value", configure a separate database in Preview Defaults. |
+| **Durable Objects** | **Not isolated.** Shares production namespace regardless of binding config. | Use [`ctx.exports`](/workers/worker-previews/durable-object-isolation/#use-ctxexports) — the only path that auto-isolates. |
+
+For Durable Objects specifically, refer to [Durable Object isolation](/workers/worker-previews/durable-object-isolation/) for a step-by-step guide.
+
+## What are Preview Defaults?
+
+Preview Defaults are the template for every preview environment. They are stored server-side on your Worker and include bindings, variables, secrets, observability settings, and runtime configuration. When you create or update a preview, it takes a **snapshot** of the current Preview Defaults at that moment.
+
+There are three ways to view and edit Preview Defaults. They all read and write the same server-side configuration:
+
+| Interface | What it's called | How it works |
+| --- | --- | --- |
+| **Dashboard** | **Settings** > **Bindings** > **Previews** toggle (and **Variables and Secrets** > **Previews** toggle) | Edits Preview Defaults directly. Changes take effect immediately. |
+| **Wrangler** | `previews` block in `wrangler.jsonc` | A local representation of Preview Defaults. Does nothing until you run `wrangler preview settings update` to push it to the API. |
+| **API** | `preview_defaults` field on the Worker object | The underlying server-side storage. Dashboard and Wrangler both read/write this. |
+
+If you edit Preview Defaults in the dashboard, those changes are visible via `wrangler preview settings` and the API. If you edit the `previews` block locally and push it with `wrangler preview settings update`, those changes show up in the dashboard. They are the same thing accessed different ways.
+
+### How they work
+
+1. You configure Preview Defaults — which KV namespace previews should use, which secrets, which variables, etc.
+2. Every time you run `wrangler preview` (or Builds creates a preview), the preview takes a **snapshot** of the current Preview Defaults.
+3. Changing Preview Defaults after a preview was created does **not** retroactively update that preview. To pick up the new defaults, push to the preview again.
+
+**Example:** Your Preview Defaults have a KV binding `CACHE` and a variable `ENVIRONMENT: "preview"`. A teammate creates a preview on a feature branch — it gets both.
+
+A week later, you add a D1 binding `DB` to Preview Defaults for a new feature. A second branch creates a preview — it gets `CACHE`, `ENVIRONMENT`, and `DB`.
+
+The first branch's preview still only has `CACHE` and `ENVIRONMENT`. It used the Preview Defaults as they were when it was last pushed. To pick up `DB`, run `wrangler preview` again on that branch.
+
+![Preview Defaults snapshot behavior](~/assets/images/workers/worker-previews/snapshot-behavior.svg)
+
+### How to configure Preview Defaults
+
+<Tabs>
+<TabItem label="Dashboard">
+
+Changes take effect immediately — the next preview created will use the updated defaults.
+
+1. Go to **Settings** > **Bindings** and toggle to **Previews**.
+2. Go to **Settings** > **Variables and Secrets** and toggle to **Previews**.
+3. Review **Settings** > **Runtime** and **Settings** > **Observability**.
+
+</TabItem>
+<TabItem label="Wrangler">
+
+Add a `previews` block to your Wrangler configuration file, then push it to the API:
+
+```bash
+npx wrangler preview settings update
+```
+
+You need to run this command **every time you change the `previews` block** in your config file. The local config is not automatically synced — `wrangler preview settings update` is what pushes your local changes to the API where Preview Defaults are stored.
+
+</TabItem>
+<TabItem label="API">
+
+```bash
+curl -X PATCH \
+  "https://api.cloudflare.com/client/v4/accounts/$ACCOUNT_ID/workers/workers/$WORKER_ID" \
+  -H "Authorization: Bearer $API_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "preview_defaults": {
+      "bindings": [...],
+      "compatibility_date": "2025-05-25",
+      "observability": { "enabled": true }
+    }
+  }'
+```
+
+Changes take effect immediately for the next preview created.
+
+</TabItem>
+</Tabs>
+
+### What Preview Defaults include
+
+| Setting | Example |
+| --- | --- |
+| **Bindings** | KV namespaces, R2 buckets, D1 databases, Durable Objects, service bindings |
+| **Variables** | Environment variables (`ENVIRONMENT: "preview"`) |
+| **Secrets** | API keys, tokens (managed via `wrangler preview secret put` or the dashboard) |
+| **Observability** | Log sampling rate, Logpush, Tail Workers |
+| **Runtime** | Compatibility date, compatibility flags |
+
+### Adding new bindings, variables, or secrets
+
+Production and Preview Defaults are configured separately. When you add something new to production, you need to add the preview equivalent to Preview Defaults too.
+
+**Example:** You add a new R2 bucket `UPLOADS` to production. Your previews won't have `UPLOADS` unless you also add it to Preview Defaults — either pointing to a separate preview bucket (for isolation) or checking "Use production value" (to share the production bucket).
+
+| What you changed in production | What you also need to do in Preview Defaults |
+| --- | --- |
+| Added a new binding (KV, R2, D1, etc.) | Add the preview equivalent — either a separate resource or "Use production value" |
+| Added a new variable | Add it to Preview Defaults vars (it won't inherit from production) |
+| Added a new secret | Run `wrangler preview secret put` or add it in the dashboard |
+| Changed compatibility date | Update it in Preview Defaults if you want previews to match |
+
+If you forget, previews created after the change will be missing the new binding/variable/secret. This can cause runtime errors in your preview that don't happen in production.
+
+## Observability
+
+Each preview has its own observability settings, configured through [Preview Defaults](#what-are-preview-defaults). Logs, metrics, and traces from a preview are tagged with the preview identity, so you can filter by preview in the dashboard and through the API.
+
+| Feature | How it works for previews |
+| --- | --- |
+| **Workers Logs** | Logs from a preview are filterable by preview name in the dashboard. Configure log sampling via `observability.logs.head_sampling_rate` in Preview Defaults. |
+| **Logpush** | Enable per-preview by setting `logpush: true` in Preview Defaults. Logs are pushed to your configured destination with preview metadata included. |
+| **Tail Workers** | Both buffered and streaming Tail Workers receive preview metadata (`preview.id`, `preview.slug`, `preview.name`) on each trace/event. Configure which Tail Workers receive preview logs via `tail_consumers` in Preview Defaults. |
+| **Metrics** | Invocations, subrequests, and Durable Object analytics are tagged per-preview. Filter by preview in the dashboard or query via the GraphQL Analytics API. |
+
+Observability settings are part of the Preview Defaults [snapshot](#how-they-work) — changing them does not retroactively update existing previews.
+
+## How preview URLs work
+
+Each preview gets two kinds of URLs:
+
+| URL | Format | What it points to |
+| --- | --- | --- |
+| **Stable URL** | `<BRANCH>-<WORKER>.<SUBDOMAIN>.workers.dev` | Always the latest push to this preview |
+| **Per-commit URL** | `<DEPLOYMENT_ID>-<WORKER>.<SUBDOMAIN>.workers.dev` | A specific commit (immutable) |
+
+The stable URL is what you share with teammates or use in CI — it always reflects your latest code. The per-commit URL lets you go back and look at a specific version of the preview if needed.
+
+You can also serve previews on your own custom domain. Refer to [Custom domains](/workers/worker-previews/custom-domains/) for setup instructions.
+
+## Preview lifecycle
+
+### Creation
+
+A preview is created the first time you run `wrangler preview` on a branch (or with a `--name`). If a preview already exists for that branch or name, subsequent runs push new code to the existing preview — the stable URL stays the same.
+
+### Updates
+
+Every `wrangler preview` run on the same branch pushes new code to the existing preview. The stable URL always points to the latest code. Previous commits remain accessible via their per-commit URLs.
+
+### Deletion
+
+Previews can be deleted in three ways:
+
+- **Manual CLI:** `wrangler preview delete` removes the preview for the current branch. Use `--name` to delete a named preview.
+- **Manual dashboard:** Inside the preview detail page, go to **Settings** > **General** > **Delete**.
+- **Auto-deletion (git-connected):** When you enable **Auto-deletion** in the preview's Settings, the preview is automatically deleted when the tracking branch is deleted in the repository. This is enabled by default for previews created by Workers Builds.
+
+For CLI-only previews (not tied to a git connection), auto-deletion does not apply. You are responsible for cleaning up previews you no longer need.
+
+When a preview is deleted, auto-provisioned Durable Object namespaces associated with it are also deleted. KV namespaces, R2 buckets, and D1 databases configured as preview bindings are **not** deleted — they are separate resources you manage independently.
+
+---
+
+## Dashboard tabs
+
+Your Worker has two main tabs in the Cloudflare dashboard — **Deployments** and **Previews**. They represent different pipelines with different capabilities.
+
+### Deployments tab
+
+The **Deployments** tab is your **production control panel**. It shows:
+
+- The **active deployment** — which version(s) are currently serving production traffic and at what percentage
+- **Version history** — all versions created via `wrangler deploy` or `wrangler versions upload`
+- **Rollout controls** — adjust traffic split percentages for gradual rollouts
+- **Rollback** — quickly revert production to a previous version
+
+This tab is **production-only**. Previews do not appear here.
+
+### Previews tab
+
+The **Previews** tab is dedicated to your **isolated testing environments**. It lists all active Worker Previews, each identified by its Git branch name (or custom alias).
+
+From this tab you can:
+
+- View the list of previews with their **stable URL** and **per-push immutable URLs**
+- Click into a preview to see recent pushes, scoped logs and traces, and preview-specific settings
+- Create new previews, push changes, or delete them
+
+**Important:** The Previews tab does **not** show production versions, traffic splits, or rollback options. Gradual rollouts and rollbacks are production-only features that live exclusively in the **Deployments** tab. Previews always serve 100% of their traffic to the latest push and do not create entries in your production version history.
+
+:::note
+If you have not yet configured **Preview Defaults** or created any previews, the Previews tab will be empty. See the [setup steps](/workers/worker-previews/#1-configure-preview-bindings-and-settings) to get started.
+:::
+
+### Quick comparison: Deployments vs Previews
+
+| Aspect | **Deployments** tab | **Previews** tab |
+| --- | --- | --- |
+| **Purpose** | Production releases and safety | Isolated testing environments |
+| **Shows** | Active versions, version history, traffic splits | List of previews (by branch/name), stable + per-push URLs |
+| **Gradual rollouts / rollbacks** | Yes | No (always 100% to latest push) |
+| **Creates versions** | Yes | No |
+| **Bindings** | Production bindings | Preview-specific bindings (from Preview Defaults) |
+| **Logs and traces** | Production-wide | Per-preview (scoped) |
+| **When to use** | Managing what is live in production | Testing feature branches safely before shipping |
+
+---
+
+## How Previews compare to other Workers features
+
+### Previews vs `wrangler deploy`
+
+`wrangler deploy` ships code directly to production. There is no isolation — changes are immediately live.
+
+`wrangler preview` creates a separate environment for testing. Production is untouched until you explicitly run `wrangler deploy`.
+
+### Previews vs version URLs
+
+:::note[Naming history]
+What the Cloudflare docs and dashboard previously called "Preview URLs" (at [`/workers/configuration/previews/`](/workers/configuration/previews/)) are now called **version URLs**. They are the same thing — a URL generated by `wrangler versions upload` that runs against production bindings. They were renamed to avoid confusion with **Worker Previews**, which are a different feature with full isolation. If you learned the old system, the key shift is: "preview URL" no longer means what it used to. Version URLs are for inspecting a production version before a gradual rollout. Worker Previews are for isolated branch testing.
+:::
+
+[Version URLs](/workers/configuration/previews/) are generated when you run `wrangler versions upload`. They let you hit a specific version of your Worker at a URL, but the version runs against your **production bindings** — the same KV, R2, Durable Objects, and secrets as production. They were originally designed for inspecting a version before a [gradual rollout](/workers/worker-previews/rollouts-and-rollbacks/), not as a general-purpose testing environment.
+
+Worker Previews (`wrangler preview`) give each branch its own isolated environment with separate resources. The tradeoff is that previews cannot be gradually rolled out or rolled back — those are production-only capabilities.
+
+| | Version URLs | Worker Previews |
+| --- | --- | --- |
+| **Created by** | `wrangler versions upload` | `wrangler preview` |
+| **Bindings** | Production bindings | Isolated — own bindings, secrets, storage |
+| **Gradual rollout** | Yes — the version can be deployed to a % of traffic | No — previews are for testing only |
+| **Rollback** | Yes | No |
+| **Custom domains** | No | Yes |
+| **Observability** | No logs, traces, or logpush | Per-preview logs and traces |
+| **Durable Objects** | Not generated for Workers with DOs | Isolated DO namespace per preview |
+| **Stable URL per branch** | Aliased URLs supported but versioned URL changes on every upload | Yes — tied to the branch name by default |
+
+**Recommendation: Use Worker Previews for all branch testing.** They give you full isolation so you can test freely without risking production data. Use the **Previews tab** in the dashboard to manage your previews — it shows all active previews, their URLs, and per-preview logs.
+
+Version URLs (`wrangler versions upload`) remain available for existing Workers that have them enabled, but they are not recommended for testing. They run against production bindings and have [limitations](/workers/configuration/previews/#limitations) including no isolation, no Durable Object support, no logs, and no stable URL per branch. If you are using Worker Previews, rely on the **Previews tab** for testing — not the version URLs shown in the **Deployments tab**.
+
+`wrangler versions upload` is a production command — it creates a version that can be gradually rolled out to production traffic. If you have been using it for branch testing (because version URLs were the only option before), use `wrangler preview` for that instead. The two commands serve different purposes and can coexist: `wrangler preview` for isolated branch testing, `wrangler versions upload` for [gradual production rollouts](/workers/worker-previews/rollouts-and-rollbacks/).
+
+### Availability of version URLs
+
+**New Workers:** `wrangler versions upload` no longer generates a version URL. This cannot be enabled. Use `wrangler preview` to get a preview URL with [isolated resources](/workers/worker-previews/concepts/#previews-vs-version-urls).
+
+**Existing Workers** that already have version URLs enabled can continue to use them. However, we recommend disabling them to avoid confusion between production resources (used by version URLs) and isolated preview resources (used by Worker Previews). You can disable version URLs in **Settings** > **Domains & Routes** or by setting `preview_urls: false` in your Wrangler configuration file. Refer to [Preview URLs](/workers/configuration/previews/) for details.
+
+### Previews vs gradual rollouts
+
+[Gradual rollouts](/workers/worker-previews/rollouts-and-rollbacks/) let you send a percentage of production traffic to a new version (for example, 10% to the new code, 90% to the old code). This is a production deployment strategy — both versions share the same bindings and serve real users.
+
+Previews are not a deployment strategy. They are a separate testing environment. You cannot split traffic between a preview and production, and you cannot directly promote a preview to production.
+
+### Moving from preview to production
+
+When you are done testing in a preview, you ship to production as a separate step. Nothing from the preview carries over — no data, no state, no side effects. Only the code moves.
+
+| Goal | What to do |
+| --- | --- |
+| **Ship immediately to 100%** | Merge your branch and run `wrangler deploy` (or let Builds run it on merge). |
+| **Gradual rollout** | Merge your branch, then run `wrangler versions upload` followed by `wrangler versions deploy` to send a percentage of production traffic to the new version. See [gradual rollouts](/workers/worker-previews/rollouts-and-rollbacks/). |
+| **Rollback after shipping** | Use `wrangler rollback` or the **Deployments tab** in the dashboard. Rollbacks apply to production deployments only — your previews are unaffected. |
+
+Previews and production rollouts are fully independent. Changing a rollout percentage does not affect any preview, and deleting a preview does not affect production.
+
+---
+
+## Reference: what each command does
+
+| Command | What happens | Touches production? |
+| --- | --- | --- |
+| `wrangler deploy` | Ships code to production immediately | Yes |
+| `wrangler versions upload` | Creates a version you can inspect or gradually roll out later | No (until you deploy it) |
+| `wrangler versions deploy` | Routes production traffic to specific version(s) | Yes |
+| `wrangler preview` | Creates or updates an isolated preview environment | No |
+| `wrangler preview secret put` | Adds a secret to Preview Defaults | No |
+| `wrangler preview settings update` | Updates Preview Defaults from your Wrangler configuration file | No |
+| `wrangler preview delete` | Deletes a preview and its resources | No |
+
+## Related resources
+
+- [Get started with Worker Previews](/workers/worker-previews/) — Step-by-step setup guide
+- [Workflow guides](/workers/worker-previews/workflows/) — Choose the right workflow for your setup
+- [Durable Object isolation](/workers/worker-previews/durable-object-isolation/) — Isolated DO storage in previews
+- [Custom domains](/workers/worker-previews/custom-domains/) — Serve previews on your own domain
+
+- [Gradual rollouts and rollbacks](/workers/worker-previews/rollouts-and-rollbacks/) — How rollouts and rollbacks work alongside previews
+- [Preview URLs](/workers/configuration/previews/) — Version URLs (legacy)
+
+---
+
+## Limits
+
+Previews count against a separate account-level preview limit, not the Worker limit. If you reach the limit, the least-recently-deployed preview is deleted to make room for new ones.

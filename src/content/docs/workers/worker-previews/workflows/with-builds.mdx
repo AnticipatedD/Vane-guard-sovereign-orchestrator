@@ -1,0 +1,113 @@
+---
+pcx_content_type: how-to
+title: With Workers Builds (git-connected)
+description: Use Worker Previews with Workers Builds — automatic previews on feature branches, automatic deploys on merge.
+sidebar:
+  order: 1
+---
+
+Your Worker is connected to a Git repository via [Workers Builds](/workers/ci-cd/builds/). Builds runs the right command based on the branch — feature branches create previews, the production branch deploys to production.
+
+![With Workers Builds](~/assets/images/workers/worker-previews/lifecycle-with-builds.svg)
+
+---
+
+## Deploy on merge
+
+The simplest setup. Feature branches get previews. Merging to main deploys to production at 100%.
+
+**Your build settings:**
+
+| Setting | Value |
+| --- | --- |
+| Deploy command | `npx wrangler deploy` |
+| Preview command | `npx wrangler preview` |
+
+**How it works:**
+
+1. Push to a feature branch — Builds runs `wrangler preview`. A preview is created with isolated bindings.
+2. Test against the preview URL (`my-feature-my-worker.subdomain.workers.dev`).
+3. Merge to main — Builds runs `wrangler deploy`. Production is updated at 100%.
+
+**To set this up:**
+
+1. Navigate to your Worker in the Cloudflare dashboard.
+2. Go to **Settings** > **Build**.
+3. Set the **Preview command** (previously called "Non-production branch deploy command" in the dashboard) to `npx wrangler preview`.
+4. If you have not already, [configure preview bindings and settings](/workers/worker-previews/#1-configure-preview-bindings-and-settings).
+5. Push to a feature branch. A preview will be created automatically.
+
+---
+
+## Deploy on merge with gradual rollouts
+
+If you want to control the rollout instead of deploying to 100% immediately, set your deploy command to `npx wrangler versions upload`. Every merge to main creates a version without deploying it. You then control the rollout manually.
+
+| Setting | Value |
+| --- | --- |
+| Deploy command | `npx wrangler versions upload` |
+| Preview command | `npx wrangler preview` |
+
+**How it works:**
+
+1. Push to a feature branch — Builds runs `wrangler preview`. Preview is created with isolated bindings.
+2. Test against the preview URL.
+3. Merge to main — Builds runs `wrangler versions upload`. A version is created. **No traffic changes.**
+4. You control the rollout via `wrangler versions deploy`, the dashboard, or the API.
+
+**The tradeoff:** Every merge to main creates a version that sits at 0% traffic until you roll it out. If you merge frequently, versions will pile up and each one requires a manual `versions deploy` step.
+
+:::caution[You cannot mix `wrangler deploy` with gradual rollouts in Builds]
+You might want to keep `npx wrangler deploy` as your deploy command (auto-deploy to 100% on merge) and only use gradual rollouts occasionally. This does not work — see [why you cannot mix them](/workers/worker-previews/rollouts-and-rollbacks/with-builds/#why-you-cannot-mix-wrangler-deploy-with-gradual-rollouts) for the full explanation and diagram.
+:::
+
+For the full gradual rollout and rollback guide, including how to start a rollout, monitor, promote, and roll back, see [Gradual rollouts and rollbacks with Builds](/workers/worker-previews/rollouts-and-rollbacks/with-builds/).
+
+---
+
+## What Builds posts back to your Git provider
+
+When a build completes, Builds can post a comment or status check back to your Git provider (GitHub/GitLab). What gets posted depends on which command ran:
+
+| Command | What Builds posts back |
+| --- | --- |
+| `wrangler preview` | Preview URL posted as a comment/status on the PR. |
+| `wrangler versions upload` (existing Workers) | Version URL posted as a comment/status on the PR. These URLs use production bindings — they are [not isolated](/workers/worker-previews/concepts/#previews-vs-version-urls). |
+| `wrangler versions upload` (new Workers) | **No URL posted.** Version URLs are disabled for new Workers. Use `wrangler preview` for preview URLs. |
+| `wrangler deploy` | **No comment posted.** The deploy succeeds, but Builds does not post a production URL back to the PR. |
+
+:::note[What if you change the preview command back to `wrangler versions upload`?]
+- **Existing Workers** (created before Worker Previews): `wrangler versions upload` will still generate a version URL and Builds will post it back to your Git provider. These URLs use [production bindings](/workers/worker-previews/concepts/#previews-vs-version-urls).
+- **New Workers** (created after Worker Previews): `wrangler versions upload` will **not** generate a URL. Version URLs are disabled for new Workers and cannot be enabled. Use `wrangler preview` for preview URLs.
+:::
+
+---
+
+For how preview isolation works (same code, different bindings), see [How isolation works](/workers/worker-previews/workflows/#how-isolation-works).
+
+:::note
+If you update Preview Defaults (add a new binding, change a variable), existing previews are **not** retroactively updated. They use the defaults as they were when last deployed. To pick up new defaults, push to the preview again. See [Preview Defaults snapshot behavior](/workers/worker-previews/concepts/#how-they-work).
+:::
+
+---
+
+## Common scenarios
+
+### "I tested in a preview. How do I ship to production?"
+
+Merge your PR. Builds runs your deploy command on main — either `wrangler deploy` (deploys to 100%) or `wrangler versions upload` (creates a version for gradual rollout), depending on your build settings.
+
+The code is the same as what you tested. The difference is it now runs with production bindings instead of preview bindings.
+
+### "A preview build failed. Where do I see it?"
+
+1. Go to your Worker in the Cloudflare dashboard.
+2. Navigate to the **Previews** tab.
+3. Click on the preview (branch) that failed.
+4. Check the **Deployments** list inside the preview — failed builds will show there.
+
+Alternatively, check your Git provider (GitHub/GitLab) for build status checks on the branch.
+
+### "My preview command was `wrangler versions upload`. What changes?"
+
+Changing from `wrangler versions upload` to `wrangler preview` means non-production branches will create isolated previews instead of production versions. Your deploy command is unchanged. See [Switching from `wrangler versions upload`](/workers/worker-previews/workflows/#switching-from-wrangler-versions-upload) for the full walkthrough.
