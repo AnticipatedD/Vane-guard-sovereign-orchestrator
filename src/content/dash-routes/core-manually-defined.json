@@ -1,0 +1,12 @@
+[
+	{
+		"deeplink": "/?to=/:account/tunnels",
+		"name": "Tunnels",
+		"parent": ["Networking"]
+	},
+	{
+		"deeplink": "/?to=/:account/mesh",
+		"name": "Mesh",
+		"parent": ["Networking"]
+	}
+]
