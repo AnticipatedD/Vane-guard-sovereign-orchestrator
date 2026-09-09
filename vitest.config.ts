@@ -4,8 +4,35 @@ import { getViteConfig } from "astro/config";
 
 import tsconfigPaths from "vite-tsconfig-paths";
 
+const coverage = {
+	provider: "v8" as const,
+	reporter: ["text", "json", "html"] as const,
+	reportsDirectory: "./coverage",
+	exclude: [
+		"**/*.d.ts",
+		"**/*.config.*",
+		"**/node_modules/**",
+		"**/dist/**",
+		"**/.astro/**",
+		"**/.flue/**",
+		"**/coverage/**",
+		"**/worker-configuration.d.ts",
+		"**/env.d.ts",
+		"**/test/**",
+		"**/*.test.ts",
+		"**/*.spec.ts",
+	],
+	thresholds: {
+		lines: 50,
+		functions: 50,
+		branches: 50,
+		statements: 50,
+	},
+};
+
 export default defineConfig({
 	test: {
+		coverage,
 		projects: [
 			defineConfig({
 				plugins: [
