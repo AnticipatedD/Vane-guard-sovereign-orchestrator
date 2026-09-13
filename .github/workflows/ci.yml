@@ -101,8 +101,8 @@ jobs:
       - name: Check component docs reference
         run: pnpm exec tsx bin/check-component-docs.ts
 
-      - name: Tests
-        run: pnpm run test:prebuild
+      - name: Tests with coverage
+        run: pnpm exec vitest --project Node --project Astro --run --coverage
 
   build:
     name: Build
