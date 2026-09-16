@@ -6,8 +6,12 @@ on:
   pull_request:
     branches: [ main, master ]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  build-validate-and-gate:
+  code-quality-lint:
     runs-on: ubuntu-latest
     steps:
     - name: Check out repository targets
@@ -36,5 +40,52 @@ jobs:
     - name: Execute Vitest Engine enforcing strict 50% coverage gate boundaries
       run: pnpm run test:ci
 
-    - name: Run build artifact verification check
+  static-typecheck:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Check out repository targets
+      uses: actions/checkout@v4
+
+    - name: Set up pnpm Package Manager
+      uses: pnpm/action-setup@v4
+      with:
+        version: 9.9.0
+
+    - name: Set up Node.js Environment
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'pnpm'
+
+    - name: Install exact pinned dependency trees
+      run: pnpm install --frozen-lockfile
+
+    - name: Execute Astro layout verification typecheck
+      run: pnpm run check:astro
+
+    - name: Execute Worker framework signature verification typecheck
+      run: pnpm run check:worker
+
+  build-artifact-gate:
+    needs: [code-quality-lint, static-typecheck]
+    runs-on: ubuntu-latest
+    steps:
+    - name: Check out repository targets
+      uses: actions/checkout@v4
+
+    - name: Set up pnpm Package Manager
+      uses: pnpm/action-setup@v4
+      with:
+        version: 9.9.0
+
+    - name: Set up Node.js Environment
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'pnpm'
+
+    - name: Install exact pinned dependency trees
+      run: pnpm install --frozen-lockfile
+
+    - name: Run build compile artifact validation check
       run: pnpm run build
