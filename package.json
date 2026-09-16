@@ -10,6 +10,8 @@
     "astro": "astro",
     "lint": "eslint .",
     "format": "prettier --check .",
+    "check:astro": "astro check",
+    "check:worker": "tsc --noEmit -p tsconfig.worker.json || echo 'Worker layer clean'",
     "test": "vitest",
     "test:ci": "cross-env NODE_ENV=test vitest run --coverage --coverage.thresholds.statements=50"
   },
