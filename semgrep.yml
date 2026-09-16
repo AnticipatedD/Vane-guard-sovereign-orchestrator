@@ -1,0 +1,14 @@
+rules:
+  - id: generic-api-key-documentation-placeholder
+    pattern: "PLACEHOLDER_CF_API_TOKEN"
+    message: "Permit intentional API token string placeholders inside code example rendering blocks."
+    severity: INFO
+    languages:
+      - tsx
+      - typescript
+      - javascript
+    metadata:
+      category: security
+    paths:
+      include:
+        - "src/components/ai-gateway/code-example-selector.tsx"
