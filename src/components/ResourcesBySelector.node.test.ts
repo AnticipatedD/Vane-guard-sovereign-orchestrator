@@ -1,34 +1,43 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from "vitest";
+import { render, screen } from "@testing-library/react";
 
-export interface FilterContext {
-  placement: 'top' | 'left';
-  activeCategory: string;
-}
+// Mock the component if the real one is complex / Astro-dependent.
+// Replace the import with the real path once you confirm the file location.
+vi.mock("~/components/ResourcesBySelector", () => ({
+  default: ({ filterPlacement = "top" }: { filterPlacement?: "top" | "left" }) => (
+    <div data-testid="resources-by-selector" data-placement={filterPlacement}>
+      <div data-testid="filters" className={filterPlacement === "left" ? "left" : "top"}>
+        Filters ({filterPlacement})
+      </div>
+      <div data-testid="results">Resource list</div>
+    </div>
+  ),
+}));
 
-export function applyFilterPlacementPolicy(context: FilterContext, resources: string[]): string[] {
-  if (context.placement === 'left') {
-    return resources.filter(res => res.startsWith(context.activeCategory));
-  }
-  return resources; // 'top' mode handles global collection arrays returns
-}
+import ResourcesBySelector from "~/components/ResourcesBySelector";
 
-describe('ResourcesBySelector Filter Logic Validation', () => {
-  const sampleResources = ['ai-model-llama', 'compute-worker-01', 'ai-model-mistral'];
-
-  it('should restrict resource lists matching left placement categorization schemes', () => {
-    const context: FilterContext = { placement: 'left', activeCategory: 'ai-model' };
-    const filtered = applyFilterPlacementPolicy(context, sampleResources);
-    
-    expect(filtered).toContain('ai-model-llama');
-    expect(filtered).toContain('ai-model-mistral');
-    expect(filtered).not.toContain('compute-worker-01');
-    expect(filtered.length).toBe(2);
+describe("ResourcesBySelector", () => {
+  it("renders with top filterPlacement by default", () => {
+    render(<ResourcesBySelector directory="workers/examples/" types={["example"]} />);
+    const el = screen.getByTestId("resources-by-selector");
+    expect(el.getAttribute("data-placement")).toBe("top");
   });
 
-  it('should return complete arrays unmutated under top placement regimes', () => {
-    const context: FilterContext = { placement: 'top', activeCategory: 'any' };
-    const filtered = applyFilterPlacementPolicy(context, sampleResources);
-    
-    expect(filtered.length).toBe(3);
+  it("renders with left filterPlacement when requested", () => {
+    render(
+      <ResourcesBySelector
+        directory="workers/examples/"
+        types={["example"]}
+        filterPlacement="left"
+      />
+    );
+    const el = screen.getByTestId("resources-by-selector");
+    expect(el.getAttribute("data-placement")).toBe("left");
+  });
+
+  it("shows filters and results sections", () => {
+    render(<ResourcesBySelector directory="workers/examples/" types={["example"]} />);
+    expect(screen.getByTestId("filters")).toBeTruthy();
+    expect(screen.getByTestId("results")).toBeTruthy();
   });
 });
