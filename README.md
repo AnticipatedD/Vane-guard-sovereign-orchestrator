@@ -1,182 +1,111 @@
 # Vane-Guard-Sovereign-Orchestrator
 
-A production-oriented documentation and developer portal built with Astro, Starlight, React, TypeScript, and Cloudflare tooling.
+A production-oriented frontend documentation portal and edge orchestration gateway built with **Astro**, **Starlight**, **React**, **TypeScript**, and **Cloudflare Workers**.
 
-This repository currently contains the web documentation/application infrastructure, reusable UI components, content tooling, validation utilities, search integration, and Cloudflare Worker tooling that make up the project.
-
-> **Repository truthfulness:** The source tree and build configuration are authoritative. This README intentionally documents the actual Astro/TypeScript application rather than an unrelated historical project description.
+> **Architecture & Scope Notice:** This repository houses web application infrastructure, reusable UI components, content tooling, schema validation utilities, search integration, and Cloudflare Worker edge services. It is a high-performance frontend documentation system, not an ML research or model-training codebase.
 
 ## Technology Stack
 
-* Astro
-* Starlight
-* TypeScript
-* React
-* Vitest
-* Zod
-* Cloudflare Workers
-* pnpm
-* GitHub Actions
+* **Frontend Engine:** Astro, Starlight, React
+* **Language & Validation:** TypeScript, Zod
+* **Edge Runtime:** Cloudflare Workers
+* **Testing & Quality:** Vitest, ESLint, Prettier
+* **Package Management & CI:** pnpm, GitHub Actions
 
 ## Repository Structure
 
 ```text
 .
 ├── .github/
-│   └── workflows/       # CI automation
-├── bin/                  # Repository and build utilities
+│   └── workflows/       # CI automation and quality gates
+├── bin/                 # Repository and catalog build utilities
 ├── src/
-│   ├── components/       # Astro and React UI components
-│   ├── content/          # Documentation content and collections
-│   ├── plugins/          # Content and rendering integrations
-│   └── util/             # Shared application utilities
-├── worker/               # Cloudflare Worker runtime
-├── astro.config.mjs      # Astro configuration
-├── package.json          # Scripts and dependencies
-├── pnpm-lock.yaml        # Locked dependency graph
-└── vitest.config.ts      # Test configuration
+│   ├── components/      # React and Astro UI components
+│   ├── content/         # Documentation content collections
+│   ├── plugins/         # Custom MDX and rendering plugins
+│   └── util/            # Shared utility functions and schemas
+├── worker/              # Cloudflare Worker edge runtime & health endpoints
+├── astro.config.mjs     # Astro site configuration
+├── package.json         # Pinned scripts and dependencies
+├── pnpm-lock.yaml       # Deterministic lockfile
+└── vitest.config.ts     # Multi-environment test suite configuration
 ```
+### Requirements
+- **​Node.js**: >= 18.14.1
+- ​**pnpm**: ^9.9.0
 
-## Requirements
-
-* Node.js 24 or compatible current LTS release
-* pnpm 11+
-
-## Installation
-
+# Installation
 Clone the repository and install the locked dependency tree:
-
 ```bash
 pnpm install --frozen-lockfile
 ```
-
-## Development
-
-Start the local development server:
-
+# Development
+​Start the local development server on port 1111:
 ```bash
 pnpm dev
 ```
-
-The development server is configured to use port `1111`.
-
-## Validation
-
-Before submitting changes, run the repository checks:
-
+# Quality Verification
+​Before submitting pull requests, run the complete suite of quality gates:
 ```bash
-pnpm run check
+pnpm run typecheck
 pnpm run lint
-pnpm run format:core:check
-pnpm test -- --run
+pnpm run format
+pnpm run test:ci
 ```
-
-For a production build:
-
+To build the static documentation assets and worker bundle for production:
 ```bash
 pnpm run build
 ```
-
-## Testing
-
-Tests are executed with Vitest.
-
-The repository uses multiple Vitest environments for different parts of the application, including Worker, Node, and Astro-oriented tests.
-
-Run the complete test suite:
-
+# Testing Architecture
+​Tests are executed via **Vitest** across multiple targeted environments (Worker, Node, and DOM).
+​Run all tests once:
 ```bash
-pnpm test -- --run
+pnpm test
 ```
-
+Run tests with statement coverage validation (>= 65% requirement):
+```bash
+pnpm run test:ci
+```
 Run a specific test file:
-
 ```bash
-pnpm exec vitest run path/to/file.test.ts
+pnpm exec vitest run src/components/models/SchemaTree.node.test.ts
 ```
-
-When adding or modifying behavior, add focused tests with the implementation change.
-
-## Environment Variables
-
-Some integrations require credentials or service configuration through environment variables.
-
-Create a local `.env` file from the supplied example:
-
+# Environment Configuration
+​Configure service credentials locally using environment variables. Initialize your configuration from the example file:
 ```bash
 cp .env.example .env
 ```
+Ensure core runtime parameters are populated in your local `.env`:
+env
+NODE_ENV=development
+CI=false
+LOG_FORMAT=json
+CLIENT_ID=vane_guard_dev_client
+USER_ID=vane_guard_dev_user
+CLOUDFLARE_API_TOKEN=your_token_here
 
-Never commit `.env` files containing credentials.
+--- 
 
-Typical integration variables include:
+# Security & Secrets 
+- Secrets and tokens must never be committed to source control.
+- ​Use local `.env` files for development, GitHub Secrets for CI, and Cloudflare Environment Variables for edge deployment.
+- If a credential is accidentally exposed, revoke and rotate it immediately.
+​
+# CI/CD Pipeline
+​GitHub Actions executes the following automated checks on every pull request:
+1. ​**Dependency Verification**: Enforces strict frozen lockfile installation.
+2. ​**Type Safety & Linting**: Executes pnpm run typecheck and pnpm run lint.
+3. ​**Coverage & Testing**: Runs unit test suites with coverage threshold enforcement.
+4. **Production Build Verification**: Validates pnpm run build static outputs.
 
-```text
-ALGOLIA_API_KEY=
-CLOUDFLARE_API_TOKEN=
-CLOUDFLARE_ACCOUNT_ID=
-GITHUB_TOKEN=
-JIRA_AUTH_TOKEN=
-CF_API_BASE_URL=
-```
+# ​Development Guidelines
+​Maintain a clean, mineable Git history:
+- Keep changes atomic, focused, and paired with their corresponding tests (`*.node.test.ts`).
+- ​Follow Conventional Commits (`feat:, fix:, test:, docs:, ci:`).
+- ​Keep PRs scoped and under 200 LOC where possible.
+  
+# Contribution
+​See [CONTRIBUTING](CONTRIBUTING.md) for detailed workflow and governance policies.
 
-Only configure variables required by the functionality you are actually using.
-
-## Security
-
-Secrets must never be committed directly into source code.
-
-Use:
-
-* local `.env` files for development;
-* GitHub Actions secrets for CI;
-* Cloudflare secret/environment configuration for deployed Workers.
-
-If a credential has previously been committed to a public repository, **revoke or rotate it** before relying on the replacement environment variable.
-
-## CI
-
-GitHub Actions is used to validate repository changes.
-
-The expected quality gates include:
-
-* dependency installation;
-* repository/type checks;
-* linting;
-* formatting validation;
-* tests;
-* production build validation.
-
-A change should not be considered complete merely because it compiles locally. Relevant automated tests should accompany behavior changes.
-
-## Development Guidelines
-
-Prefer small, focused changes.
-
-For a feature or bug fix:
-
-1. Make the smallest coherent implementation change.
-2. Add or update tests for the behavior.
-3. Run the relevant validation locally.
-4. Keep unrelated formatting/refactoring out of the same commit.
-5. Use a descriptive commit message.
-
-Example:
-
-```text
-fix: validate Algolia configuration
-```
-
-rather than:
-
-```text
-update stuff
-```
-
-## Contribution
-
-See [`CONTRIBUTING.md`](./CONTRIBUTING.md) for repository contribution and verification guidance.
-
-## License
-
-See [`LICENSE`](./LICENSE) and [`LICENSE-CODE`](./LICENSE-CODE) for the applicable project licenses.
+# ​License
+​See [LICENSE](license.md) and [LICENSE-CODE](license-code.md)  for licensing information.
