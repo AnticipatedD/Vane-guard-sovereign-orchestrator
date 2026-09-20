@@ -3,17 +3,18 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "astro dev",
-    "start": "astro dev",
-    "build": "astro check && astro build",
+    "dev": "astro dev --port 1111",
+    "start": "astro dev --port 1111",
+    "build": "pnpm run check && astro build",
     "preview": "astro preview",
     "astro": "astro",
     "lint": "eslint .",
     "format": "prettier --check .",
     "check": "pnpm run check:astro && pnpm run check:worker",
+    "typecheck": "pnpm run check",
     "check:astro": "astro check",
-    "check:worker": "tsc --noEmit -p tsconfig.worker.json || echo 'Worker layer clean'",
-    "test": "vitest",
+    "check:worker": "tsc --noEmit -p tsconfig.worker.json",
+    "test": "vitest run",
     "test:ci": "cross-env NODE_ENV=test vitest run --coverage --coverage.thresholds.statements=65"
   },
   "dependencies": {
