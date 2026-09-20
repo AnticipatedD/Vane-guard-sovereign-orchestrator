@@ -3,9 +3,9 @@ import { generateRedirectsEvaluator } from "redirects-in-workers";
 import redirectsFileContents from "../dist/__redirects";
 
 const redirectsEvaluator = generateRedirectsEvaluator(redirectsFileContents, {
-    maxLineLength: 10_000, // Usually 2_000
-    maxStaticRules: 10_000, // Usually 2_000
-    maxDynamicRules: 2_000, // Usually 100
+    maxLineLength: 10_000,
+    maxStaticRules: 10_000,
+    maxDynamicRules: 2_000,
 });
 
 const LLMS_FULL_R2_PREFIX = "v1/cloudflare-docs-llms-full";
@@ -31,9 +31,6 @@ function structuredLog(
     }
 }
 
-// RFC 9727 requires the path to be exactly /.well-known/api-catalog with no
-// extension. The Cloudflare ASSETS binding cannot serve extensionless files
-// from dot-prefixed directories, so this must be handled directly in the worker.
 const API_CATALOG = JSON.stringify({
     linkset: [
         {
@@ -64,15 +61,6 @@ const API_CATALOG = JSON.stringify({
     ],
 });
 
-/**
- * When a redirect response is returned for an index.md request, rewrite the
- * Location header so the agent stays in Markdown land instead of landing on
- * an HTML page.
- *
- * Only rewrites relative (same-origin) Location values — external redirects
- * (e.g. to GitHub) are left untouched because appending index.md to a
- * non-docs URL would be nonsensical.
- */
 function rewriteRedirectForMarkdown(
     redirect: Response,
     requestUrl: URL,
@@ -83,7 +71,6 @@ function rewriteRedirectForMarkdown(
     try {
         const dest = new URL(location, requestUrl.origin);
 
-        // Only rewrite same-origin redirects that point to a docs path (trailing /)
         if (dest.origin !== requestUrl.origin) return redirect;
         if (!dest.pathname.endsWith("/")) return redirect;
 
@@ -104,6 +91,23 @@ export default class extends WorkerEntrypoint<Env> {
     override async fetch(request: Request) {
         const url = new URL(request.url);
         const { pathname } = url;
+        const requestId = request.headers.get("x-request-id") || crypto.randomUUID();
+
+        // System Health & Monitoring Endpoint
+        if (pathname === "/health") {
+            structuredLog("info", "Health check probe evaluated", { requestId });
+            return new Response(
+                JSON.stringify({
+                    status: "ok",
+                    service: "vane-guard-sovereign-orchestrator",
+                    timestamp: new Date().toISOString(),
+                }),
+                {
+                    status: 200,
+                    headers: { "Content-Type": "application/json; charset=utf-8" },
+                },
+            );
+        }
 
         if (pathname === "/.well-known/api-catalog") {
             return new Response(API_CATALOG, {
@@ -143,9 +147,6 @@ export default class extends WorkerEntrypoint<Env> {
         }
 
         if (pathname.endsWith("/llms-full.txt")) {
-            // pathname is e.g. "/llms-full.txt" or "/workers/llms-full.txt"
-            // R2 key: "v1/cloudflare-docs-llms-full/llms-full.txt" or
-            //         "v1/cloudflare-docs-llms-full/workers/llms-full.txt"
             const r2Key = `${LLMS_FULL_R2_PREFIX}${pathname}`;
             const object = await this.env.MIDDLECACHE.get(r2Key);
 
@@ -164,9 +165,6 @@ export default class extends WorkerEntrypoint<Env> {
 
         try {
             try {
-                // For index.md requests, evaluate redirects against the base path
-                // (without the index.md suffix) so that redirect rules written for
-                // the HTML path (e.g. /learning-paths/ → /resources/) still fire.
                 const evalRequest = isMarkdownRequest
                     ? new Request(
                             url.origin +
@@ -184,6 +182,7 @@ export default class extends WorkerEntrypoint<Env> {
                 }
             } catch (error) {
                 structuredLog("error", "Could not evaluate redirects", {
+                    requestId,
                     error: error instanceof Error ? error.message : String(error),
                 });
             }
@@ -207,12 +206,14 @@ export default class extends WorkerEntrypoint<Env> {
                     "error",
                     "Could not evaluate redirects with a forced trailing slash",
                     {
+                        requestId,
                         error: error instanceof Error ? error.message : String(error),
                     },
                 );
             }
         } catch (error) {
             structuredLog("error", "Unknown worker error", {
+                requestId,
                 error: error instanceof Error ? error.message : String(error),
             });
         }
@@ -236,4 +237,4 @@ export default class extends WorkerEntrypoint<Env> {
 
         return response;
     }
-		}
+}
