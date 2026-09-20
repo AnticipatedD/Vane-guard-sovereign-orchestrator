@@ -1,48 +1,25 @@
-type LogLevel = "debug" | "info" | "warn" | "error";
+export type LogLevel = 'info' | 'warn' | 'error' | 'debug';
 
 export interface LogContext {
-    [key: string]: unknown;
+  [key: string]: unknown;
 }
 
-function formatEntry(
-    level: LogLevel,
-    message: string,
-    context: LogContext = {},
-): string {
-    return JSON.stringify({
-        level,
-        message,
-        timestamp: new Date().toISOString(),
-        ...context,
-    });
+export function log(level: LogLevel, message: string, context: LogContext = {}): void {
+  const payload = {
+    timestamp: new Date().toISOString(),
+    level,
+    message,
+    ...context,
+  };
+
+  if (process.env.NODE_ENV === 'test') {
+    return; // Suppress stdout noise during automated unit testing
+  }
+
+  if (process.env.CI || process.env.LOG_FORMAT === 'json') {
+    console.log(JSON.stringify(payload));
+  } else {
+    const formattedContext = Object.keys(context).length ? JSON.stringify(context) : '';
+    console.log(`[${payload.timestamp}] [${level.toUpperCase()}]: ${message} ${formattedContext}`);
+  }
 }
-
-export function createLogger(defaultContext: LogContext = {}) {
-    const log = (level: LogLevel, message: string, context: LogContext = {}) => {
-        const entry = formatEntry(level, message, {
-            ...defaultContext,
-            ...context,
-        });
-
-        if (level === "error") {
-            console.error(entry);
-        } else if (level === "warn") {
-            console.warn(entry);
-        } else {
-            console.log(entry);
-        }
-    };
-
-    return {
-        debug: (message: string, context?: LogContext) =>
-            log("debug", message, context),
-        info: (message: string, context?: LogContext) =>
-            log("info", message, context),
-        warn: (message: string, context?: LogContext) =>
-            log("warn", message, context),
-        error: (message: string, context?: LogContext) =>
-            log("error", message, context),
-    };
-}
-
-export const logger = createLogger({ service: "vane-guard" });
