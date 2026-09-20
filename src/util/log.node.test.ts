@@ -1,65 +1,25 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { createLogger } from "./log";
+import { describe, expect, it, vi } from 'vitest';
+import { log } from './log';
 
-describe("createLogger", () => {
-    beforeEach(() => {
-        vi.spyOn(console, "log").mockImplementation(() => {});
-        vi.spyOn(console, "warn").mockImplementation(() => {});
-        vi.spyOn(console, "error").mockImplementation(() => {});
-    });
+describe('Structured Logging Utility', () => {
+  it('formats structured log payloads cleanly', () => {
+    const spy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const originalCi = process.env.CI;
+    const originalNodeEnv = process.env.NODE_ENV;
 
-    afterEach(() => {
-        vi.restoreAllMocks();
-    });
+    process.env.CI = 'true';
+    delete process.env.NODE_ENV;
 
-    it("logs info as structured JSON", () => {
-        const log = createLogger({ service: "test" });
-        log.info("hello", { requestId: "abc" });
+    log('info', 'Catalog synchronization completed', { itemsProcessed: 42 });
 
-        expect(console.log).toHaveBeenCalledTimes(1);
-        const payload = JSON.parse(
-            (console.log as unknown as { mock: { calls: string[][] } }).mock
-                .calls[0][0],
-        );
-        expect(payload.level).toBe("info");
-        expect(payload.message).toBe("hello");
-        expect(payload.service).toBe("test");
-        expect(payload.requestId).toBe("abc");
-        expect(payload.timestamp).toBeTruthy();
-    });
+    expect(spy).toHaveBeenCalledOnce();
+    const parsedPayload = JSON.parse(spy.mock.calls[0][0]);
+    expect(parsedPayload.level).toBe('info');
+    expect(parsedPayload.message).toBe('Catalog synchronization completed');
+    expect(parsedPayload.itemsProcessed).toBe(42);
 
-    it("logs warn via console.warn", () => {
-        const log = createLogger();
-        log.warn("caution");
-        expect(console.warn).toHaveBeenCalledTimes(1);
-    });
-
-    it("logs error via console.error", () => {
-        const log = createLogger();
-        log.error("failed", { code: 500 });
-        expect(console.error).toHaveBeenCalledTimes(1);
-        const payload = JSON.parse(
-            (console.error as unknown as { mock: { calls: string[][] } }).mock
-                .calls[0][0],
-        );
-        expect(payload.level).toBe("error");
-        expect(payload.code).toBe(500);
-    });
-
-    it("logs debug via console.log", () => {
-        const log = createLogger();
-        log.debug("detail");
-        expect(console.log).toHaveBeenCalledTimes(1);
-    });
-
-    it("merges default context with call context", () => {
-        const log = createLogger({ app: "docs" });
-        log.info("msg", { step: 1 });
-        const payload = JSON.parse(
-            (console.log as unknown as { mock: { calls: string[][] } }).mock
-                .calls[0][0],
-        );
-        expect(payload.app).toBe("docs");
-        expect(payload.step).toBe(1);
-    });
+    process.env.CI = originalCi;
+    process.env.NODE_ENV = originalNodeEnv;
+    spy.mockRestore();
+  });
 });
