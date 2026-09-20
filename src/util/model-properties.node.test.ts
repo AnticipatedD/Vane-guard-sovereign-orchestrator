@@ -1,16 +1,18 @@
-import { describe, expect, it } from "vitest";
-import {
-	getAllCapabilityLabels,
-	getCapabilities,
-	getCategoryForLabel,
-	getLabelsByCategory,
-	hasProperty,
-} from "./model-properties";
+import { describe, expect, it } from 'vitest';
+import { parseModelId, sanitizeModelName } from './model-properties';
 
-type TestProperty = {
-	property_id: string;
-	value: string;
-};
+describe('Model Properties Helpers', () => {
+  it('sanitizes input model names cleanly', () => {
+    expect(sanitizeModelName(' Meta-Llama-3-8B ')).toBe('meta-llama-3-8b');
+    expect(sanitizeModelName('===Mistral 7B===')).toBe('mistral-7b');
+  });
+
+  it('parses valid model namespace string paths', () => {
+    const result = parseModelId('@cf/meta/llama-3-8b-instruct');
+    expect(result.vendor).toBe('meta');
+    expect(result.name).toBe('llama-3-8b-instruct');
+  });
+});
 
 const model = (properties: TestProperty[]) =>
 	({ properties }) as never;
