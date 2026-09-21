@@ -1,0 +1,6 @@
+{
+  "authors": [
+    { "id": "amd", "name": "AMD", "logo": "/logos/amd.svg" },
+    { "id": "meta", "name": "Meta", "logo": "/logos/meta.svg" }
+  ]
+}
