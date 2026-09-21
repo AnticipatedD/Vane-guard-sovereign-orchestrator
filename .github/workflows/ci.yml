@@ -1,4 +1,4 @@
-name: Continuous Integration & Architecture Quality
+name: CI Pipeline
 
 on:
   push:
@@ -8,74 +8,45 @@ on:
 
 jobs:
   lint-and-typecheck:
-    name: Lint & Typecheck
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v3
+      - uses: actions/checkout@v3
+      - uses: pnpm/action-setup@v2
         with:
-          version: 9
-
-      - name: Setup Node.js Engine
-        uses: actions/setup-node@v4
+          version: 8
+      - uses: actions/setup-node@v3
         with:
-          node-version: 20
+          node-version: 18
           cache: 'pnpm'
-
-      - name: Install Dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Lint Verification
-        run: pnpm run lint
-
-      - name: Typecheck Verification
-        run: pnpm run typecheck
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run lint
+      - run: pnpm run typecheck
 
   test-and-coverage:
-    name: Unit Tests & Coverage Enforcement
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v3
+      - uses: actions/checkout@v3
+      - uses: pnpm/action-setup@v2
         with:
-          version: 9
-
-      - name: Setup Node.js Engine
-        uses: actions/setup-node@v4
+          version: 8
+      - uses: actions/setup-node@v3
         with:
-          node-version: 20
+          node-version: 18
           cache: 'pnpm'
-
-      - name: Install Dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Run Test Suite in CI Mode
-        run: pnpm run test:ci
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run test:ci
 
   build:
-    name: Build Verification
     needs: [lint-and-typecheck, test-and-coverage]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v3
+      - uses: actions/checkout@v3
+      - uses: pnpm/action-setup@v2
         with:
-          version: 9
-
-      - name: Setup Node.js Engine
-        uses: actions/setup-node@v4
+          version: 8
+      - uses: actions/setup-node@v3
         with:
-          node-version: 20
+          node-version: 18
           cache: 'pnpm'
-
-      - name: Install Dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Build Application
-        run: pnpm run build
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run build
