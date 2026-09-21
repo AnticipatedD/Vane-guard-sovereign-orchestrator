@@ -1,26 +1,30 @@
-export interface LogPayload {
-  level: 'info' | 'warn' | 'error';
-  message: string;
-  requestId?: string;
-  context?: Record<string, unknown>;
-  timestamp?: string;
+export interface LogContext {
+  [key: string]: unknown;
 }
 
-export const logger = {
-  log(payload: LogPayload): void {
-    const formatted = {
-      timestamp: payload.timestamp || new Date().toISOString(),
-      level: payload.level,
-      message: payload.message,
-      requestId: payload.requestId || 'N/A',
-      ...payload.context,
+export class WorkerLogger {
+  private format: string;
+
+  constructor() {
+    this.format = process.env.LOG_FORMAT || 'json';
+  }
+
+  info(message: string, context: LogContext = {}) {
+    const payload = { level: 'info', message, timestamp: new Date().toISOString(), ...context };
+    console.log(this.format === 'json' ? JSON.stringify(payload) : `[INFO] ${message}`);
+  }
+
+  error(message: string, error?: Error, context: LogContext = {}) {
+    const payload = {
+      level: 'error',
+      message,
+      errorMessage: error?.message,
+      stack: error?.stack,
+      timestamp: new Date().toISOString(),
+      ...context,
     };
-    console.log(JSON.stringify(formatted));
-  },
-  info(message: string, context?: Record<string, unknown>, requestId?: string): void {
-    this.log({ level: 'info', message, context, requestId });
-  },
-  error(message: string, context?: Record<string, unknown>, requestId?: string): void {
-    this.log({ level: 'error', message, context, requestId });
-  },
-};
+    console.error(this.format === 'json' ? JSON.stringify(payload) : `[ERROR] ${message}`);
+  }
+}
+
+export const logger = new WorkerLogger();
