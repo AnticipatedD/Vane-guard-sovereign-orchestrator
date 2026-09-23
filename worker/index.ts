@@ -1,6 +1,7 @@
 import { WorkerEntrypoint } from "cloudflare:workers";
 import { generateRedirectsEvaluator } from "redirects-in-workers";
 import redirectsFileContents from "../dist/__redirects";
+import { logger } from "./logger";
 
 const redirectsEvaluator = generateRedirectsEvaluator(redirectsFileContents, {
     maxLineLength: 10_000,
@@ -9,27 +10,6 @@ const redirectsEvaluator = generateRedirectsEvaluator(redirectsFileContents, {
 });
 
 const LLMS_FULL_R2_PREFIX = "v1/cloudflare-docs-llms-full";
-
-function structuredLog(
-    level: "error" | "warn" | "info",
-    message: string,
-    context: Record<string, unknown> = {},
-) {
-    const entry = JSON.stringify({
-        level,
-        message,
-        timestamp: new Date().toISOString(),
-        service: "vane-guard-worker",
-        ...context,
-    });
-    if (level === "error") {
-        console.error(entry);
-    } else if (level === "warn") {
-        console.warn(entry);
-    } else {
-        console.log(entry);
-    }
-}
 
 const API_CATALOG = JSON.stringify({
     linkset: [
@@ -95,7 +75,7 @@ export default class extends WorkerEntrypoint<Env> {
 
         // System Health & Monitoring Endpoint
         if (pathname === "/health") {
-            structuredLog("info", "Health check probe evaluated", { requestId });
+            logger.info("Health check probe evaluated", { requestId, service: "vane-guard-sovereign-orchestrator" });
             return new Response(
                 JSON.stringify({
                     status: "ok",
@@ -181,9 +161,8 @@ export default class extends WorkerEntrypoint<Env> {
                         : redirect;
                 }
             } catch (error) {
-                structuredLog("error", "Could not evaluate redirects", {
+                logger.error("Could not evaluate redirects", error instanceof Error ? error : new Error(String(error)), {
                     requestId,
-                    error: error instanceof Error ? error.message : String(error),
                 });
             }
 
@@ -202,19 +181,17 @@ export default class extends WorkerEntrypoint<Env> {
                         : redirect;
                 }
             } catch (error) {
-                structuredLog(
-                    "error",
+                logger.error(
                     "Could not evaluate redirects with a forced trailing slash",
+                    error instanceof Error ? error : new Error(String(error)),
                     {
                         requestId,
-                        error: error instanceof Error ? error.message : String(error),
                     },
                 );
             }
         } catch (error) {
-            structuredLog("error", "Unknown worker error", {
+            logger.error("Unknown worker error", error instanceof Error ? error : new Error(String(error)), {
                 requestId,
-                error: error instanceof Error ? error.message : String(error),
             });
         }
 
