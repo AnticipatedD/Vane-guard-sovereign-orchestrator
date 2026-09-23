@@ -15,7 +15,7 @@
     "check:astro": "astro check",
     "check:worker": "tsc --noEmit -p tsconfig.worker.json",
     "test": "vitest run",
-    "test:ci": "cross-env NODE_ENV=test vitest run --coverage --coverage.thresholds.statements=65"
+    "test:ci": "cross-env NODE_ENV=test vitest run --coverage --coverage.thresholds.statements=75"
   },
   "dependencies": {
     "@astrojs/react": "^4.2.0",
