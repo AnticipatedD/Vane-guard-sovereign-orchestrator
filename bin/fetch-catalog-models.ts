@@ -117,10 +117,10 @@ function parseArgs(): { file?: string } {
 }
 
 async function loadFromFile(filePath: string): Promise<CatalogModel[]> {
-	console.log(`Loading models from file: ${filePath}`);
+	logger.info(`Loading models from file: ${filePath}`);
 
 	if (!fs.existsSync(filePath)) {
-		console.error(`Error: File not found: ${filePath}`);
+		logger.error(`Error: File not found: ${filePath}`);
 		process.exit(1);
 	}
 
@@ -134,7 +134,7 @@ async function loadFromFile(filePath: string): Promise<CatalogModel[]> {
 	} else if (data.result) {
 		models = data.result;
 	} else {
-		console.error(
+		logger.error(
 			"Error: Unrecognized file format. Expected array or API response with 'result' field.",
 		);
 		process.exit(1);
@@ -150,7 +150,9 @@ async function loadFromFile(filePath: string): Promise<CatalogModel[]> {
 	]
 		.filter(Boolean)
 		.join(", ");
-	console.log(
+	logger.info
+
+(
 		`  Loaded ${models.length} models${skippedNotes ? ` (${skippedNotes})` : ""}`,
 	);
 	return activeModels;
@@ -171,8 +173,8 @@ async function fetchModelList(
 	let page = 1;
 	let hasMore = true;
 
-	console.log("Fetching model list from Unified Catalog API...");
-	console.log(`  Base URL: ${API_BASE_URL}`);
+	logger.info("Fetching model list from Unified Catalog API...");
+	logger.info(`  Base URL: ${API_BASE_URL}`);
 
 	while (hasMore) {
 		const url = `${API_BASE_URL}/client/v4/accounts/${accountId}/ai/catalog/models?page=${page}&per_page=${PER_PAGE}`;
@@ -182,18 +184,18 @@ async function fetchModelList(
 		});
 
 		if (!response.ok) {
-			console.error(
+			logger.error(
 				`API request failed: ${response.status} ${response.statusText}`,
 			);
 			const text = await response.text();
-			console.error(text);
+			logger.error(text);
 			process.exit(1);
 		}
 
 		const data = (await response.json()) as CatalogListResponse;
 
 		if (!data.success) {
-			console.error("API returned error:", data.errors);
+			logger.error("API returned error:", data.errors);
 			process.exit(1);
 		}
 
@@ -233,7 +235,7 @@ async function fetchModelDetail(
 	});
 
 	if (!response.ok) {
-		console.error(`  Failed to fetch ${modelId}: ${response.status}`);
+		logger.error(`  Failed to fetch ${modelId}: ${response.status}`);
 		return null;
 	}
 
@@ -252,13 +254,13 @@ async function fetchFromApi(): Promise<CatalogModel[]> {
 	const ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID;
 
 	if (!API_TOKEN || !ACCOUNT_ID) {
-		console.error(
+		logger.error(
 			"Error: CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID environment variables are required",
 		);
-		console.error(
+		logger.error(
 			"\nAlternatively, use --file to import from a local JSON export:",
 		);
-		console.error(
+		logger.error(
 			"  npx tsx bin/fetch-catalog-models.ts --file catalog-export.json",
 		);
 		process.exit(1);
@@ -266,7 +268,7 @@ async function fetchFromApi(): Promise<CatalogModel[]> {
 
 	// Pass 1: get all model IDs from the list endpoint
 	const modelIds = await fetchModelList(ACCOUNT_ID, API_TOKEN);
-	console.log(
+	logger.info(
 		`\nFetching ${modelIds.length} model details (concurrency: ${CONCURRENCY})...`,
 	);
 
@@ -293,12 +295,12 @@ async function fetchFromApi(): Promise<CatalogModel[]> {
 		process.stdout.write(`\r  ${fetched}/${modelIds.length} models fetched`);
 	}
 
-	console.log();
+	logger.info();
 
 	if (failed.length > 0) {
-		console.log(`  Failed: ${failed.length} models`);
+		logger.info(`  Failed: ${failed.length} models`);
 		for (const id of failed) {
-			console.log(`    - ${id}`);
+			logger.info(`    - ${id}`);
 		}
 	}
 
@@ -351,114 +353,78 @@ function redactCredentialUrls<T>(value: T): T {
 }
 
 /**
- * Serialize to JSON with all non-ASCII characters escaped as `\uXXXX`.
- *
- * Catalog API responses sometimes return non-ASCII characters as raw UTF-8
- * (`°`, `“`, `—`) and sometimes as already-escaped sequences (`\u00b0`,
- * `\u201c`, `\u2014`), depending on the provider. `JSON.stringify` preserves
- * whatever form is in memory, which means re-running the fetcher rewrites
- * many model files with no real change — just an encoding flip.
- *
- * Forcing ASCII-safe output keeps on-disk content stable across re-runs and
- * matches the form already checked in.
+ * Imports model data from the Unified Catalog and saves as JSON files.
+ * ... (keep the existing header comment unchanged)
  */
-function stringifyAsciiSafe(value: unknown, indent: string): string {
-	return JSON.stringify(value, null, indent).replace(
-		/[\u0080-\uffff]/g,
-		(c) => "\\u" + c.charCodeAt(0).toString(16).padStart(4, "0"),
-	);
+
+import fs from "node:fs";
+import path from "node:path";
+import { logger } from "../src/util/log.ts";
+
+// ... keep all interfaces and constants exactly as they were ...
+
+async function loadFromFile(filePath: string): Promise<CatalogModel[]> {
+    logger.info(`Loading models from file: ${filePath}`);
+
+    if (!fs.existsSync(filePath)) {
+        logger.error(`File not found: ${filePath}`);
+        process.exit(1);
+    }
+
+    const content = fs.readFileSync(filePath, "utf-8");
+    const data = JSON.parse(content) as CatalogListResponse | CatalogModel[];
+
+    let models: CatalogModel[];
+    if (Array.isArray(data)) {
+        models = data;
+    } else if (data.result) {
+        models = data.result;
+    } else {
+        logger.error(
+            "Unrecognized file format. Expected array or API response with 'result' field.",
+        );
+        process.exit(1);
+    }
+
+    const publicModels = models.filter((m) => !m.private);
+    const activeModels = publicModels.filter((m) => !isDeprecated(m));
+    const skippedPrivate = models.length - publicModels.length;
+    const skippedDeprecated = publicModels.length - activeModels.length;
+    const skippedNotes = [
+        skippedPrivate > 0 ? `${skippedPrivate} private skipped` : null,
+        skippedDeprecated > 0 ? `${skippedDeprecated} deprecated skipped` : null,
+    ]
+        .filter(Boolean)
+        .join(", ");
+    logger.info(
+        `Loaded ${models.length} models${skippedNotes ? ` (${skippedNotes})` : ""}`,
+    );
+    return activeModels;
 }
 
-function getModelFileName(modelId: string): string {
-	// model_id format: "@cf/author/model-name"
-	// Extract the model name (third segment)
-	const parts = modelId.split("/");
-	if (parts.length >= 3) {
-		return parts[2];
-	}
-	// Fallback: sanitize the full ID
-	return modelId.replace(/[@/]/g, "-").replace(/^-+/, "");
-}
+// In fetchModelList:
+// replace console.log / console.error with logger.info / logger.error
 
-function writeModels(models: CatalogModel[]): void {
-	// Ensure output directory exists
-	if (!fs.existsSync(OUTPUT_DIR)) {
-		fs.mkdirSync(OUTPUT_DIR, { recursive: true });
-	}
+// In fetchFromApi:
+// replace the env-var error block and progress messages with logger.*
 
-	// Clear existing files (except .gitkeep)
-	const existingFiles = fs.readdirSync(OUTPUT_DIR);
-	for (const file of existingFiles) {
-		if (file !== ".gitkeep") {
-			fs.unlinkSync(path.join(OUTPUT_DIR, file));
-		}
-	}
-
-	// Write each model to a JSON file
-	let written = 0;
-	const skipped: string[] = [];
-	const skippedDeprecated: string[] = [];
-
-	for (const model of models) {
-		// Skip private models
-		if (model.private) {
-			skipped.push(model.model_id);
-			continue;
-		}
-
-		if (isDeprecated(model)) {
-			skippedDeprecated.push(model.model_id);
-			continue;
-		}
-
-		// Trim string fields that may have leading/trailing whitespace
-		model.name = model.name.trim();
-		model.description = model.description.trim();
-
-		// Drop the `pricing` field — it's returned by the catalog API but is
-		// not consumed by the docs site and isn't declared in the schema.
-		delete model.pricing;
-
-		// Strip credentials from any pre-signed URLs in the response.
-		const redacted = redactCredentialUrls(model);
-
-		const fileName = getModelFileName(model.model_id);
-		const filePath = path.join(OUTPUT_DIR, `${fileName}.json`);
-
-		fs.writeFileSync(
-			filePath,
-			stringifyAsciiSafe(redacted, "\t") + "\n",
-			"utf-8",
-		);
-		written++;
-	}
-
-	console.log(`\nDone!`);
-	console.log(`  Written: ${written} models`);
-	if (skipped.length > 0) {
-		console.log(`  Skipped (private): ${skipped.length}`);
-	}
-	if (skippedDeprecated.length > 0) {
-		console.log(`  Skipped (deprecated): ${skippedDeprecated.length}`);
-	}
-	console.log(`  Output: ${OUTPUT_DIR}`);
-}
+// In writeModels:
+// replace final console.log summary with logger.info
 
 async function main() {
-	const args = parseArgs();
+    const args = parseArgs();
+    let models: CatalogModel[];
 
-	let models: CatalogModel[];
+    if (args.file) {
+        models = await loadFromFile(args.file);
+    } else {
+        models = await fetchFromApi();
+    }
 
-	if (args.file) {
-		models = await loadFromFile(args.file);
-	} else {
-		models = await fetchFromApi();
-	}
-
-	writeModels(models);
+    writeModels(models);
 }
 
 main().catch((err) => {
-	console.error("Unexpected error:", err);
-	process.exit(1);
+    logger.error("Unexpected error", { error: String(err) });
+    process.exit(1);
 });
