@@ -2,7 +2,9 @@
 
 A production-oriented frontend documentation portal and edge orchestration gateway built with **Astro**, **Starlight**, **React**, **TypeScript**, and **Cloudflare Workers**.
 
-> **Architecture & Scope Notice:** This repository houses web application infrastructure, reusable UI components, content tooling, schema validation utilities, search integration, and Cloudflare Worker edge services. It is a high-performance frontend documentation system, not an ML research or model-training codebase.
+> **Architecture & Scope Notice**  
+> This repository is a **documentation portal and edge gateway**. It contains web application infrastructure, reusable UI components, content tooling, schema validation utilities, search integration, and Cloudflare Worker edge services.  
+> **It is not an ML research, model-training, or experiment-reproducibility codebase.** There are no training loops, experiment configs, seeds, or model checkpoints. Any model catalog data present is static documentation metadata only.
 
 ## Technology Stack
 
@@ -30,7 +32,9 @@ A production-oriented frontend documentation portal and edge orchestration gatew
 ├── pnpm-lock.yaml       # Deterministic lockfile
 └── vitest.config.ts     # Multi-environment test suite configuration
 ```
+
 ### Requirements
+
 - **​Node.js**: >= 18.14.1
 - ​**pnpm**: ^9.9.0
 
@@ -62,7 +66,7 @@ pnpm run build
 ```bash
 pnpm test
 ```
-Run tests with statement coverage validation (>= 65% requirement):
+Run tests with coverage thresholds (statements/lines ≥ 75 %, branches/functions ≥ 65 %): 
 ```bash
 pnpm run test:ci
 ```
@@ -77,11 +81,11 @@ cp .env.example .env
 ```
 Ensure core runtime parameters are populated in your local `.env`:
 env
-NODE_ENV=development
-CI=false
-LOG_FORMAT=json
-CLIENT_ID=vane_guard_dev_client
-USER_ID=vane_guard_dev_user
+NODE_ENV=development 
+CI=false 
+LOG_FORMAT=json 
+CLIENT_ID=vane_guard_dev_client 
+USER_ID=vane_guard_dev_user 
 CLOUDFLARE_API_TOKEN=your_token_here
 
 --- 
