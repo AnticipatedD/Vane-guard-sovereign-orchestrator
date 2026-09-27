@@ -1,12 +1,1 @@
-stages:
-  - review
-
-default:
-  id_tokens:
-    VAULT_ID_TOKEN:
-      aud: https://vault.cfdata.org
-
-include:
-  - component: $CI_SERVER_FQDN/cloudflare/ci/ai/opencode@~latest
-    inputs:
-      runOnMR: true
+git rm .gitlab-ci.yml
