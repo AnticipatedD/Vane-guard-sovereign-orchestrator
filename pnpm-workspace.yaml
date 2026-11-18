@@ -23,3 +23,7 @@ allowBuilds:
 # Always save dependencies as exact versions and to devDependencies by default.
 saveExact: true
 saveDev: true
+packages:
+  - 'packages/*'
+  - 'apps/*'
+  - '.'
