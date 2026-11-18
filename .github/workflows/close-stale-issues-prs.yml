@@ -1,4 +1,4 @@
-# Close stale issues and pull requests (uses actions/stale@a20b814fb01b71def3bd6f56e7494d667ddf28da # v4 with GITHUB_TOKEN)
+# Close stale issues and PRs (PRs are labeled stale but never auto-closed).
 on:
   schedule:
     - cron: "0 3 * * *"
@@ -19,14 +19,10 @@ jobs:
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
           stale-issue-message: "Hey there, we've marked this issue as stale because there's no recent activity on it. This label helps us identify long-standing issues in our repo (and not used to auto-close issues)."
-          stale-pr-message: "Hey there, we've marked this pull request as stale because there's no recent activity on it. This label helps us identify PRs that might need updates (or to be closed out by our team if no longer relevant)."
+          stale-pr-message: "Hey there, we've marked this pull request as stale because there's no recent activity on it. This label helps us identify PRs that might need updates or need maintainer attention."
           days-before-stale: 14
-          # setting to a negative number means they'll never be autoclosed
           days-before-close: -1
-          # we are okay with PRs being auto-closed
-          days-before-pr-close: 30
+          days-before-pr-close: -1
           exempt-pr-labels: "never-stale"
           exempt-issue-labels: "never-stale"
-          close-pr-message: "Hey there, we've closed out this pull request because it's been stale for a while and there's been no additional action on it. If these changes are still relevant, open a new pull request (or flag to us in a GitHub issue)."
-          close-pr-label: "closed-as-stale"
           operations-per-run: 500
