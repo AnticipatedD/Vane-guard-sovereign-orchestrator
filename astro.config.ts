@@ -1,3 +1,4 @@
+
 import { defineConfig } from "astro/config";
 import starlight from "@astrojs/starlight";
 import starlightDocSearch from "@astrojs/starlight-docsearch";
@@ -36,19 +37,18 @@ async function autogenSections() {
 		.filter((x) => x.isDirectory())
 		.filter((x) => !["agent-setup"].includes(x.name))
 		.map((x) => x.name);
-	return sections.map((x) => {
-		return {
-			label: x,
-			items: [
-				{
-					autogenerate: {
-						directory: x,
-						collapsed: true,
-					},
+
+	return sections.map((x) => ({
+		label: x,
+		items: [
+			{
+				autogenerate: {
+					directory: x,
+					collapsed: true,
 				},
-			],
-		};
-	});
+			},
+		],
+	}));
 }
 
 async function autogenStyles() {
@@ -69,8 +69,10 @@ async function autogenStyles() {
 async function getExternalLinkPaths(dir: string): Promise<Set<string>> {
 	const paths = new Set<string>();
 	const entries = await readdir(dir, { withFileTypes: true });
+
 	for (const entry of entries) {
 		const full = join(dir, entry.name);
+
 		if (entry.isDirectory()) {
 			for (const p of await getExternalLinkPaths(full)) {
 				paths.add(p);
@@ -78,15 +80,18 @@ async function getExternalLinkPaths(dir: string): Promise<Set<string>> {
 		} else if (entry.name.endsWith(".mdx") || entry.name.endsWith(".md")) {
 			const content = await readFile(full, "utf-8");
 			const match = content.match(/^---\n([\s\S]*?)\n---/);
+
 			if (match?.[1].includes("external_link:")) {
 				let rel = full.slice("src/content/docs".length);
 				rel = rel.replace(/\.(mdx|md)$/, "");
 				rel = rel.replace(/\/index$/, "/");
+
 				if (!rel.endsWith("/")) rel += "/";
 				paths.add(rel.toLowerCase());
 			}
 		}
 	}
+
 	return paths;
 }
 
@@ -97,9 +102,10 @@ const externalLinkPaths = await getExternalLinkPaths("src/content/docs");
 const RUN_LINK_CHECK =
 	process.env.RUN_LINK_CHECK?.toLowerCase() === "true" || false;
 
-// https://astro.build/config
+// Vane-Guard Sovereign Orchestrator — production site configuration.
 export default defineConfig({
-	site: "https://developers.cloudflare.com",
+	site: "https://vane-guard-sovereign-orchestrator.harigov63.workers.dev",
+
 	markdown: {
 		smartypants: false,
 		remarkPlugins: [remarkValidateImages],
@@ -113,6 +119,7 @@ export default defineConfig({
 			rehypeShiftHeadings,
 		],
 	},
+
 	image: {
 		service: {
 			entrypoint: "astro/assets/services/sharp",
@@ -121,36 +128,73 @@ export default defineConfig({
 			},
 		},
 	},
+
 	experimental: {
 		contentIntellisense: true,
 	},
+
 	server: {
 		port: 1111,
 	},
+
 	integrations: [
 		starlight({
-			title: "Cloudflare Docs",
+			title: "Vane-Guard Sovereign Orchestrator",
+
 			logo: {
 				src: "./src/assets/logo.svg",
 			},
+
 			favicon: "/favicon.png",
+
 			social: [
 				{
-					label: "GitHub",
-					icon: "github",
-					href: "https://github.com/cloudflare/cloudflare-docs",
+					label: "GitHub — Primary Architecture",
+					href: "https://github.com/AnticipatedD",
 				},
-				{ label: "X.com", icon: "x.com", href: "https://x.com/cloudflare" },
 				{
-					label: "YouTube",
-					icon: "youtube",
-					href: "https://www.youtube.com/cloudflare",
+					label: "GitHub — Principles",
+					href: "https://github.com/myou260312-eng",
+				},
+				{
+					label: "LinkedIn",
+					href: "https://www.linkedin.com/in/mdabul1008",
+				},
+				{
+					label: "Microsoft Learn",
+					href: "https://learn.microsoft.com/en-gb/users/mdhossain",
+				},
+				{
+					label: "Credly — Professional",
+					href: "https://www.credly.com/users/mdahossain/badges/credly",
+				},
+				{
+					label: "Credly — Personal",
+					href: "https://www.credly.com/users/mdhossain/badges/credly",
+				},
+				{
+					label: "Open Collective — Vane-Guard",
+					href: "https://opencollective.com/vane-guard",
+				},
+				{
+					label: "IMLC — Bangladesh Ambassador",
+					href: "https://imlco.org/en/mhossain",
+				},
+				{
+					label: "Facebook",
+					href: "https://www.facebook.com/mdabulhossain1008",
+				},
+				{
+					label: "Instagram",
+					href: "https://www.instagram.com/mdabulhossain2026/",
 				},
 			],
+
 			editLink: {
 				baseUrl:
-					"https://github.com/cloudflare/cloudflare-docs/edit/production/",
+					"https://github.com/AnticipatedD/Vane-Guard-Sovereign-Orchestrator/edit/production/",
 			},
+
 			components: {
 				Banner: "./src/components/overrides/Banner.astro",
 				Footer: "./src/components/overrides/Footer.astro",
@@ -163,9 +207,11 @@ export default defineConfig({
 				SkipLink: "./src/components/overrides/SkipLink.astro",
 				TableOfContents: "./src/components/overrides/TableOfContents.astro",
 			},
+
 			sidebar,
 			customCss,
 			pagination: false,
+
 			plugins: [
 				...(RUN_LINK_CHECK
 					? [
@@ -203,28 +249,36 @@ export default defineConfig({
 							}),
 						]
 					: []),
+
 				starlightDocSearch({
 					clientOptionsModule: "./src/plugins/docsearch/index.ts",
 				}),
+
 				starlightImageZoom(),
+
 				starlightScrollToTop({
 					tooltipText: "Back to top",
 					showTooltip: true,
 					svgPath: "M12 6L6 12M12 6L18 12M12 12L6 18M12 12L18 18",
 					showProgressRing: true,
 					progressRingColor: "white",
-					showOnHomepage: false, // Hide on homepage (default)
+					showOnHomepage: false,
 				}),
 			],
+
 			lastUpdated: true,
+
 			markdown: {
 				headingLinks: false,
 				processedDirs: ["./src/content/partials/", "./src/content/changelog/"],
 			},
+
 			disable404Route: true,
 		}),
+
 		liveCode({}),
 		icon(),
+
 		sitemap({
 			filter(page) {
 				if (page.includes("/style-guide/")) {
@@ -237,32 +291,35 @@ export default defineConfig({
 
 				const pathname = new URL(page).pathname;
 
-				// Exclude external_link pages
 				if (externalLinkPaths.has(pathname)) {
 					return false;
 				}
 
-				// Exclude pages disallowed in robots.txt
 				if (isDisallowedByRobots(pathname)) {
 					return false;
 				}
 
 				return true;
 			},
+
 			serialize: createSitemapLastmodSerializer(),
 		}),
+
 		react(),
 		skills(),
 	],
+
 	vite: {
 		resolve: {
 			alias: {
 				"./Page.astro": fileURLToPath(
 					new URL("./src/components/overrides/Page.astro", import.meta.url),
 				),
+
 				"../components/Page.astro": fileURLToPath(
 					new URL("./src/components/overrides/Page.astro", import.meta.url),
 				),
+
 				"./SidebarSublist.astro": fileURLToPath(
 					new URL(
 						"./src/components/overrides/SidebarSublist.astro",
