@@ -147,53 +147,63 @@ export default defineConfig({
 
 			favicon: "/favicon.png",
 
-			social: [
-				{
-					label: "GitHub — Primary Architecture",
-					href: "https://github.com/AnticipatedD",
-				},
-				{
-					label: "GitHub — Principles",
-					href: "https://github.com/myou260312-eng",
-				},
-				{
-					label: "LinkedIn",
-					href: "https://www.linkedin.com/in/mdabul1008",
-				},
-				{
-					label: "Microsoft Learn",
-					href: "https://learn.microsoft.com/en-gb/users/mdhossain",
-				},
-				{
-					label: "Credly — Professional",
-					href: "https://www.credly.com/users/mdahossain/badges/credly",
-				},
-				{
-					label: "Credly — Personal",
-					href: "https://www.credly.com/users/mdhossain/badges/credly",
-				},
-				{
-					label: "Open Collective — Vane-Guard",
-					href: "https://opencollective.com/vane-guard",
-				},
-				{
-					label: "IMLC — Bangladesh Ambassador",
-					href: "https://imlco.org/en/mhossain",
-				},
-				{
-					label: "Facebook",
-					href: "https://www.facebook.com/mdabulhossain1008",
-				},
-				{
-					label: "Instagram",
-					href: "https://www.instagram.com/mdabulhossain2026/",
-				},
-			],
-
-			editLink: {
-				baseUrl:
-					"https://github.com/AnticipatedD/Vane-Guard-Sovereign-Orchestrator/edit/production/",
+					social: [
+			{
+				icon: "github",
+				label: "GitHub — Primary Architecture",
+				href: "https://github.com/AnticipatedD",
 			},
+			{
+				icon: "github",
+				label: "GitHub — Principles",
+				href: "https://github.com/myou260312-eng",
+			},
+			{
+				icon: "linkedin",
+				label: "LinkedIn",
+				href: "https://www.linkedin.com/in/mdabul1008",
+			},
+			{
+				icon: "open-book",
+				label: "Microsoft Learn",
+				href: "https://learn.microsoft.com/en-gb/users/mdhossain",
+			},
+			{
+				icon: "approve-check-circle",
+				label: "Credly — Professional",
+				href: "https://www.credly.com/users/mdahossain/badges/credly",
+			},
+			{
+				icon: "approve-check-circle",
+				label: "Credly — Personal",
+				href: "https://www.credly.com/users/mdhossain/badges/credly",
+			},
+			{
+				icon: "openCollective",
+				label: "Open Collective — Vane-Guard",
+				href: "https://opencollective.com/vane-guard",
+			},
+			{
+				icon: "information",
+				label: "IMLC — Bangladesh Ambassador",
+				href: "https://imlco.org/en/mhossain",
+			},
+			{
+				icon: "facebook",
+				label: "Facebook",
+				href: "https://www.facebook.com/mdabulhossain1008",
+			},
+			{
+				icon: "instagram",
+				label: "Instagram",
+				href: "https://www.instagram.com/mdabulhossain2026/",
+			},
+		],
+
+		editLink: {
+			baseUrl:
+				"https://github.com/AnticipatedD/Vane-Guard-Sovereign-Orchestrator/edit/production/",
+		},
 
 			components: {
 				Banner: "./src/components/overrides/Banner.astro",
