@@ -6,7 +6,7 @@ A production-oriented frontend documentation portal and edge orchestration gatew
 > This repository is a **documentation portal and edge gateway**. It contains web application infrastructure, reusable UI components, content tooling, schema validation utilities, search integration, and Cloudflare Worker edge services.  
 > **It is not an ML research, model-training, or experiment-reproducibility codebase.** There are no training loops, experiment configs, seeds, or model checkpoints. Any model catalog data present is static documentation metadata only.
 
-## Technology Stack
+## Technology Stack Vector Embaded Application 
 
 * **Frontend Engine:** Astro, Starlight, React
 * **Language & Validation:** TypeScript, Zod
@@ -39,9 +39,21 @@ A production-oriented frontend documentation portal and edge orchestration gatew
 - ​**pnpm**: ^9.9.0
 
 # Installation
-Clone the repository and install the locked dependency tree:
+To build the static documentation assets and worker bundle for production:
 ```bash
-pnpm install --frozen-lockfile
+pnpm run build
+```
+Deploy command
+```bash
+npx wrangler deploy
+```
+Root directory
+/
+Build token
+`vane-guard-sovereign-orchestrator build token`
+
+Build variables
+`None`
 ```
 # Development
 ​Start the local development server on port 1111:
@@ -55,10 +67,6 @@ pnpm run typecheck
 pnpm run lint
 pnpm run format
 pnpm run test:ci
-```
-To build the static documentation assets and worker bundle for production:
-```bash
-pnpm run build
 ```
 # Testing Architecture
 ​Tests are executed via **Vitest** across multiple targeted environments (Worker, Node, and DOM).
