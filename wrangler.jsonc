@@ -1,7 +1,7 @@
+```json
 {
 	"$schema": "./node_modules/wrangler/config-schema.json",
 	"name": "vane-guard-sovereign-orchestrator",
-	"account_id": "b54f07a6c269ecca2fa60f1ae4920c99",
 	"compatibility_date": "2026-11-18",
 	"compatibility_flags": ["nodejs_compat"],
 	"main": "./worker/index.ts",
