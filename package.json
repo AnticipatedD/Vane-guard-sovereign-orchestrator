@@ -25,7 +25,7 @@
     "check": "pnpm run check:astro && pnpm run check:worker",
     "typecheck": "pnpm run check",
     "check:astro": "astro check",
-    "check:worker": "tsc --noEmit -p tsconfig.worker.json",
+    "check:worker": "tsc --noEmit -p worker/tsconfig.json",
     "test": "vitest run",
     "test:ci": "cross-env NODE_ENV=test vitest run --coverage --coverage.thresholds.statements=75 --coverage.thresholds.branches=65 --coverage.thresholds.functions=65 --coverage.thresholds.lines=75"
   },
