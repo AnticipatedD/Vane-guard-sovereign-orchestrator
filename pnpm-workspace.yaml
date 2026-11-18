@@ -23,7 +23,8 @@ allowBuilds:
 # Always save dependencies as exact versions and to devDependencies by default.
 saveExact: true
 saveDev: true
+
+# This repository installs its application from the root package.json; it has no
+# packages/ or apps/ workspace directories.
 packages:
-  - 'packages/*'
-  - 'apps/*'
   - '.'
