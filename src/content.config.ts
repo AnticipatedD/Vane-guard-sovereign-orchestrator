@@ -105,7 +105,10 @@ export const collections = {
 		schema: workersAiModelsSchema,
 	}),
 	"catalog-models": defineCollection({
-		loader: dataLoader("catalog-models"),
+		loader: glob({
+			pattern: ["**/*.(json|yml|yaml)", "!**/authors.json"],
+			base: "./src/content/catalog-models",
+		}),
 		schema: catalogModelsSchema,
 	}),
 	videos: defineCollection({

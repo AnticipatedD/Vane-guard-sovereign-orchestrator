@@ -1,0 +1,22 @@
+vane-guard-production:
+  id: vane-guard-production
+  link: https://vane-guard-sovereign-orchestrator.harigov63.workers.dev
+  description: >-
+    Production deployment of the Vane-Guard Sovereign Orchestrator, demonstrating
+    Cloudflare Workers applications, partner integrations, and vector-embedding
+    workflows.
+  tags:
+    - production
+    - workers
+    - vector-embeddings
+    - applications
+    - partner-integrations
+  products:
+    - workers
+    - vectorize
+    - workers-ai
+  cloudflare: true
+  author: MD ABUL HOSSAIN (harigov63)
+  updated: 2026-11-19
+  difficulty: Intermediate
+  pcx_content_type: video
