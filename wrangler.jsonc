@@ -18,8 +18,7 @@
   "r2_buckets": [
     { "binding": "MIDDLECACHE", "bucket_name": "middlecache" }
   ],
-    {
-  // ...
+
   "observability": {
     "enabled": false,
     "head_sampling_rate": 1,
