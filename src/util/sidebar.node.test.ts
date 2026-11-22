@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { getSidebar, generateSidebar, setSidebarCurrentEntry, flattenSidebar } from "./sidebar";
+import { getSidebar, setSidebarCurrentEntry, flattenSidebar } from "./sidebar";
 import type { AstroGlobal } from "astro";
 
 vi.mock("astro:content", () => ({
@@ -26,7 +26,7 @@ vi.mock("astro:content", () => ({
         }
         return [];
     }),
-    getEntry: vi.fn(async (collection: string, id: string) => {
+    getEntry: vi.fn(async (collection: string) => {
         if (collection === "docs") {
             return {
                 data: {
@@ -92,6 +92,6 @@ describe("Sidebar Utility Functions", () => {
             locals: { starlightRoute: { sidebar: [] } }
         } as unknown as AstroGlobal;
 
-        await expect(getSidebar(mockContext)).rejects.toThrowError(/Splitting \/ resulted in 0 segments/);
+        await expect(getSidebar(mockContext)).rejects.toThrow(/Splitting \/ resulted in 0 segments/);
     });
 });
