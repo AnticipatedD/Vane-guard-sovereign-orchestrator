@@ -94,4 +94,4 @@ export function sortBySidebarOrder(a: any, b: any): number {
 	const orderB = b.order ?? b.data?.sidebar?.order ?? Number.MAX_VALUE;
 	if (orderA !== orderB) return orderA - orderB;
 	return new Intl.Collator("en").compare(a.label ?? a.data?.title ?? "", b.label ?? b.data?.title ?? "");
-				}
+}
