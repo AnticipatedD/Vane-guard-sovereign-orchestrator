@@ -39,7 +39,7 @@ export async function generateSidebar(group: SidebarGroup): Promise<SidebarGroup
 		group.entries.map(async (entry) => {
 			if (entry.type === "group") return generateSidebar(entry as SidebarGroup);
 			const link = entry as SidebarLink;
-			const docId = link.href.replace(/^\/+|\/+$/g, "");
+			const docId = link.href.split("/").filter(Boolean).join("/");
 			const doc = await getEntry("docs", docId);
 			if (doc) link.order = doc.data.sidebar.order ?? Number.MAX_VALUE;
 			link.isCurrent = false;
