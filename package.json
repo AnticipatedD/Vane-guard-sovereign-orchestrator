@@ -23,7 +23,8 @@
   "check:astro": "astro check",
   "check:worker": "tsc --noEmit -p worker/tsconfig.json",
   "test": "vitest run"
-	}
+  },
+  "devDependencies": {
   "devDependencies": {
     "@actions/core": "3.0.1",
     "@actions/github": "9.1.1",
