@@ -15,7 +15,10 @@
     "edge"
   ],
 	"scripts": {
+  "dev": "astro dev --port 1111",
+  "start": "astro dev --port 1111",
   "build": "astro build",
+  "preview": "astro preview",
   "check": "pnpm run check:astro && pnpm run check:worker",
   "check:astro": "astro check",
   "check:worker": "tsc --noEmit -p worker/tsconfig.json",
