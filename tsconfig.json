@@ -1,14 +1,14 @@
 {
-	"extends": "astro/tsconfigs/strict",
-	"compilerOptions": {
-		"baseUrl": ".",
-		"target": "ESNext",
-		"paths": {
-			"~/*": ["src/*"]
-		},
-		"jsx": "react-jsx",
-		"jsxImportSource": "react"
-	},
-	"include": [".astro/types.d.ts", "**/*"],
-	"exclude": ["dist", "worker", ".flue", "bin", "**/*.test.*"]
+  "extends": "astro/tsconfigs/strict",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "target": "ESNext",
+    "paths": {
+      "~/*": ["src/*"]
+    },
+    "jsx": "react-jsx",
+    "jsxImportSource": "react"
+  },
+  "include": [".astro/types.d.ts", "**/*"],
+  "exclude": ["dist", "worker", ".flue", "bin", "**/*.test.*", "**/*.node.test.*"]
 }
